@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>립모션 로봇수술 시뮬레이션 체험</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <!-- 내시경 렌즈 오버레이 -->
+      <div class="scope-overlay"></div>
+      <div class="lens-fx"></div>
+
+      <!-- 상단 HUD -->
+      <header class="hud-top">
+        <div class="panel title">
+          <div class="title__name">SURGICAL ARM <span class="tag">DUAL LASER</span></div>
+          <div class="title__sub">립모션으로 조작하는 로봇수술 (절개 / 봉합)</div>
+        </div>
+
+        <div id="mission" class="panel mission mission--dual">
+          <span class="mission__hand mission__hand--right">오른손 집게 → 절개</span>
+          <span class="mission__plus">+</span>
+          <span class="mission__hand mission__hand--left">왼손 집게 → 봉합</span>
+        </div>
+
+        <div class="panel telemetry">
+          <div class="telemetry__item">
+            <div class="telemetry__label">INCISION</div>
+            <div id="progress-cut" class="telemetry__val val--red">0%</div>
+          </div>
+          <div class="telemetry__sep"></div>
+          <div class="telemetry__item">
+            <div class="telemetry__label">SUTURE</div>
+            <div id="progress-suture" class="telemetry__val val--blue">0%</div>
+          </div>
+        </div>
+      </header>
+
+      <!-- 상태 배지 (연결/마운트) -->
+      <div class="hud-status">
+        <div id="status" class="panel status status--mock">
+          <span class="status__dot"></span>
+          <span id="status-text" class="status__text">목(mock) 데이터</span>
+        </div>
+        <div class="panel mode-switch" id="mount-switch">
+          <button data-mount="desktop" class="is-active">데스크톱</button>
+          <button data-mount="hmd">헤드마운트</button>
+        </div>
+      </div>
+
+      <!-- 하단 HUD -->
+      <footer class="hud-bottom">
+        <div class="panel arm-telemetry">
+          <div class="arm-telemetry__title">ARM TELEMETRY</div>
+          <div class="arm-telemetry__grid">
+            <div class="cell"><div class="cell__label">LASER PWR</div><div id="pinch-val" class="cell__val val--green">0 W</div></div>
+            <div class="cell"><div class="cell__label">DEPTH</div><div id="pos-depth" class="cell__val">0.0 mm</div></div>
+          </div>
+        </div>
+
+        <div class="center-controls">
+          <div class="panel control-switch" id="control-switch">
+            <button data-control="LEAP">립모션</button>
+            <button data-control="MOUSE" class="is-active">마우스</button>
+            <button data-control="DEMO">자동 시연</button>
+          </div>
+        </div>
+
+        <button id="reset" class="panel reset-btn">↻ 새 수술 준비</button>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

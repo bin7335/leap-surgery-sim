@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>초정밀 스마트 로봇수술 시뮬레이션 PRO</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js (3D Graphics) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Leap Motion JS SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leapjs/1.1.1/leap-1.0.0.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+KR:wght@300;400;700&display=swap');
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #050505; 
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+        }
+
+        .hud-font { font-family: 'Orbitron', sans-serif; }
+
+        .glass-minimal {
+            background: rgba(10, 15, 25, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+        }
+
+        .surgical-scope-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(circle at center, transparent 30%, rgba(5, 5, 5, 0.98) 100%);
+            z-index: 10;
+        }
+
+        .lens-fx {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px);
+            z-index: 11;
+            opacity: 0.6;
+        }
+
+        canvas { display: block; width: 100vw; height: 100vh; }
+
+        @keyframes pulse-subtle {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(239,68,68,0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 0 25px rgba(239,68,68,0.7); }
+        }
+        .pulse-effect { animation: pulse-subtle 2s infinite ease-in-out; }
+        
+        .mode-btn.active {
+            background-color: rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.8);
+            color: #fff;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden text-slate-200">
+
+    <!-- 3D WebGL 캔버스 -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+    
+    <!-- 내시경 오버레이 효과 -->
+    <div class="surgical-scope-overlay"></div>
+    <div class="lens-fx"></div>
+
+    <!-- UI 레이어 -->
+    <div class="relative z-20 w-full h-full flex flex-col justify-between p-4 pointer-events-none">
+        
+        <header class="flex justify-between items-center w-full pointer-events-auto">
+            <div class="flex items-center gap-4 glass-minimal px-6 py-3 rounded-2xl border-l-4 border-l-blue-500">
+                <i class="fa-solid fa-robot text-2xl text-blue-400"></i>
+                <div>
+                    <h1 class="text-base font-bold tracking-wider text-white flex items-center gap-2">
+                        SURGICAL ARM <span class="hud-font text-[10px] bg-red-900 text-red-300 px-2 py-0.5 rounded">DUAL LASER</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">양측면 분리형 로봇팔 (절개 / 봉합)</p>
+                </div>
+            </div>
+
+            <!-- 중앙 지시 메시지 -->
+            <div id="mission-toast" class="glass-minimal px-8 py-3 rounded-full border border-red-500/50 flex items-center gap-3 text-red-400 text-sm font-bold shadow-lg pulse-effect transition-colors duration-500">
+                <span id="mission-badge" class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+                <span id="instruction-text">[레이저 절개] 클릭 후 드래그하여 중앙 위장 환부를 정밀 절개하세요.</span>
+            </div>
+
+            <!-- 우측 진행도 및 생체 정보 -->
+            <div class="flex items-center gap-4 glass-minimal px-6 py-3 rounded-2xl">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-fire text-red-400 text-xl" id="icon-cut"></i>
+                    <div>
+                        <div class="hud-font text-[10px] text-slate-400">INCISION</div>
+                        <div class="hud-font text-sm font-bold text-red-400" id="progress-cut">0%</div>
+                    </div>
+                </div>
+                <div class="h-8 w-px bg-slate-700"></div>
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-slate-500 text-xl" id="icon-suture"></i>
+                    <div>
+                        <div class="hud-font text-[10px] text-slate-400">SUTURE</div>
+                        <div class="hud-font text-sm font-bold text-blue-400" id="progress-suture">0%</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <footer class="flex justify-between items-end w-full pointer-events-auto pb-2">
+            <!-- 좌측 하단 텔레메트리 -->
+            <div class="glass-minimal p-4 rounded-2xl w-64">
+                <div class="text-[11px] hud-font text-blue-400 font-bold mb-2 border-b border-slate-700 pb-1">ARM TELEMETRY</div>
+                <div class="grid grid-cols-2 gap-3 text-xs hud-font">
+                    <div class="bg-black/50 p-2 rounded-lg border border-slate-800">
+                        <div class="text-slate-500 mb-1">LASER PWR</div>
+                        <div id="pinch-val" class="font-bold text-emerald-400 text-sm">0 W</div>
+                    </div>
+                    <div class="bg-black/50 p-2 rounded-lg border border-slate-800">
+                        <div class="text-slate-500 mb-1">DEPTH (Z)</div>
+                        <div id="pos-z" class="font-bold text-slate-200 text-sm">0.0 mm</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 중앙 컨트롤 및 모드 변경 메뉴 -->
+            <div class="flex flex-col items-center gap-3">
+                <!-- 수술 모드 선택 메뉴 -->
+                <div class="flex items-center gap-2 p-1.5 glass-minimal rounded-xl mb-2">
+                    <button id="btn-menu-cut" class="mode-btn active px-6 py-3 rounded-lg text-slate-300 font-bold transition-all flex items-center gap-2 text-sm border border-transparent">
+                        <i class="fa-solid fa-fire text-red-500"></i> 우측팔 레이저 절개
+                    </button>
+                    <div class="h-6 w-px bg-slate-700"></div>
+                    <button id="btn-menu-suture" class="mode-btn px-6 py-3 rounded-lg text-slate-300 font-bold transition-all flex items-center gap-2 text-sm border border-transparent hover:bg-slate-800/50">
+                        <i class="fa-solid fa-wand-magic-sparkles text-blue-400"></i> 좌측팔 레이저 봉합
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 p-1.5 glass-minimal rounded-xl">
+                    <button id="btn-mode-leap" class="px-5 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all flex items-center gap-2 text-sm border border-transparent hover:border-slate-600">
+                        <i class="fa-brands fa-joomla"></i> 립모션 모드
+                    </button>
+                    <button id="btn-mode-sim" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-bold shadow-lg transition-all flex items-center gap-2 hover:bg-blue-500 text-sm">
+                        <i class="fa-solid fa-mouse"></i> 마우스 시뮬레이터
+                    </button>
+                    <button id="btn-mode-demo" class="px-5 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all flex items-center gap-2 text-sm border border-transparent hover:border-slate-600">
+                        <i class="fa-solid fa-play text-indigo-400"></i> 자동 시연
+                    </button>
+                </div>
+            </div>
+            
+            <button id="btn-reset" class="glass-minimal px-6 py-4 rounded-2xl text-slate-300 hover:text-white hover:bg-slate-800 font-bold transition-all flex items-center gap-2 border border-slate-700 shadow-lg">
+                <i class="fa-solid fa-rotate-right text-blue-400"></i> 새 수술 준비
+            </button>
+        </footer>
+    </div>
+
+    <script>
+        let scene, camera, renderer;
+        let organGroup, stomachMesh, intestinesGroup;
+        let armCutRight, armSutureLeft; 
+        let vfxParticles = [];
+        let originalStomachPos = [];
+        let stomachNormals = [];
+        let targetMarker;
+        
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const planeFallback = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); 
+        
+        let controlMode = 'SIMULATOR'; 
+        let demoAngle = 0;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        let currentToolMode = 'CUT'; // 'CUT' or 'SUTURE'
+        let cutPath = [];
+        let suturePath = [];
+        let lastActionTime = 0;
+
+        let targetIdlePosCut = new THREE.Vector3(1.5, 1.2, 0.5);
+        let targetIdlePosSuture = new THREE.Vector3(-1.5, 1.2, 0.5);
+
+        function createTissueTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#b76565';
+            ctx.fillRect(0, 0, 1024, 1024);
+            
+            ctx.strokeStyle = '#8a2be2';
+            ctx.lineWidth = 4;
+            for(let i=0; i<80; i++) {
+                ctx.beginPath();
+                let sx = Math.random()*1024; let sy = Math.random()*1024;
+                ctx.moveTo(sx, sy);
+                ctx.bezierCurveTo(sx+50, sy+100, sx-100, sy+150, sx + (Math.random()-0.5)*300, sy + 300);
+                ctx.stroke();
+            }
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 16;
+            return tex;
+        }
+
+        function init3DScene() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0a0000, 0.035);
+
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 6.5, 6.5);
+            camera.lookAt(0, -0.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+            container.appendChild(renderer.domElement);
+
+            const ambient = new THREE.AmbientLight(0x2a1515, 2.0);
+            scene.add(ambient);
+
+            const mainLight = new THREE.SpotLight(0xffffff, 7.0);
+            mainLight.position.set(0, 12, 1);
+            mainLight.angle = Math.PI / 3;
+            mainLight.penumbra = 0.5;
+            mainLight.castShadow = true;
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            mainLight.shadow.bias = -0.0005;
+            scene.add(mainLight);
+
+            const sideLight1 = new THREE.PointLight(0x38bdf8, 2.0, 15);
+            sideLight1.position.set(5, 1, 3);
+            scene.add(sideLight1);
+            
+            const sideLight2 = new THREE.PointLight(0xef4444, 1.5, 15);
+            sideLight2.position.set(-5, 1, -3);
+            scene.add(sideLight2);
+
+            buildAnatomyCenter();
+            buildTargetMarker();
+            buildSideRobotArms();
+            initVFX();
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function buildAnatomyCenter() {
+            organGroup = new THREE.Group();
+
+            const tissueProps = { roughness: 0.35, metalness: 0.05, clearcoat: 1.0, clearcoatRoughness: 0.2 };
+
+            const stomachCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-1.2, 0, -0.5),
+                new THREE.Vector3(-0.2, 0, 0),
+                new THREE.Vector3(1.0, 0, 0.3),
+                new THREE.Vector3(1.8, 0, 1.0)
+            ]);
+            const stomachGeo = new THREE.TubeGeometry(stomachCurve, 150, 1.6, 128, false);
+            
+            const colors = [];
+            const posAttr = stomachGeo.attributes.position;
+            const normAttr = stomachGeo.attributes.normal;
+            
+            for (let i = 0; i < posAttr.count; i++) {
+                colors.push(1, 1, 1);
+                let x = posAttr.getX(i);
+                let y = posAttr.getY(i);
+                let z = posAttr.getZ(i);
+                
+                let wrinkle = Math.sin(x * 12) * 0.04 + Math.cos(z * 15) * 0.04 + Math.sin(y * 8) * 0.03;
+                let nx = normAttr.getX(i);
+                let ny = normAttr.getY(i);
+                let nz = normAttr.getZ(i);
+                
+                x += nx * wrinkle;
+                y += ny * wrinkle;
+                z += nz * wrinkle;
+                
+                posAttr.setXYZ(i, x, y, z);
+                
+                originalStomachPos.push(new THREE.Vector3(x, y, z));
+                stomachNormals.push(new THREE.Vector3(nx, ny, nz));
+            }
+            
+            stomachGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            stomachGeo.computeVertexNormals(); 
+
+            const stomachMat = new THREE.MeshPhysicalMaterial({
+                ...tissueProps, 
+                map: createTissueTexture(),
+                vertexColors: true 
+            });
+            stomachMesh = new THREE.Mesh(stomachGeo, stomachMat);
+            stomachMesh.castShadow = true;
+            stomachMesh.receiveShadow = true;
+            organGroup.add(stomachMesh);
+
+            intestinesGroup = new THREE.Group();
+            const intestineMat = new THREE.MeshPhysicalMaterial({ color: 0x935353, roughness: 0.4, clearcoat: 0.8 });
+            for(let i=0; i<8; i++) {
+                const geo = new THREE.TubeGeometry(
+                    new THREE.CatmullRomCurve3([
+                        new THREE.Vector3(Math.random()*4-2, -1, Math.random()*2-1),
+                        new THREE.Vector3(Math.random()*4-2, -1.5, Math.random()*2),
+                        new THREE.Vector3(Math.random()*4-2, -1, Math.random()*4)
+                    ]), 64, 0.5, 32, false
+                );
+                const mesh = new THREE.Mesh(geo, intestineMat);
+                mesh.receiveShadow = true;
+                mesh.castShadow = true;
+                intestinesGroup.add(mesh);
+            }
+            organGroup.add(intestinesGroup);
+            
+            const liverGeo = new THREE.SphereGeometry(2.2, 64, 64);
+            liverGeo.scale(1.4, 0.6, 1.0);
+            const liverMesh = new THREE.Mesh(liverGeo, new THREE.MeshPhysicalMaterial({ color: 0x5a1818, roughness: 0.3, clearcoat: 1.0 }));
+            liverMesh.position.set(2, 0.5, -2.2);
+            liverMesh.rotation.set(0.3, 0.2, -0.1);
+            liverMesh.castShadow = true;
+            organGroup.add(liverMesh);
+
+            scene.add(organGroup);
+        }
+
+        function buildTargetMarker() {
+            targetMarker = new THREE.Group();
+            const dot = new THREE.Mesh(new THREE.CircleGeometry(0.02, 32), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.13, 32), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+            targetMarker.add(dot); targetMarker.add(ring);
+            targetMarker.renderOrder = 999;
+            targetMarker.children.forEach(c => c.material.depthTest = false);
+            scene.add(targetMarker);
+        }
+
+        function createSideArmData(armType, baseX, baseY, baseZ) {
+            const root = new THREE.Group();
+            root.position.set(baseX, baseY, baseZ);
+            
+            const armMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.6, roughness: 0.3 }); 
+            const jointMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.4 }); 
+            const highlightMat = new THREE.MeshStandardMaterial({ color: armType==='CUT'?0xef4444:0x3b82f6, metalness: 0.9, roughness: 0.2 }); 
+            
+            const L1 = 4.5; 
+            const L2 = 4.5; 
+            
+            const shoulderPivot = new THREE.Group();
+            root.add(shoulderPivot);
+            
+            const upperGeo = new THREE.BoxGeometry(0.35, 0.35, L1);
+            upperGeo.translate(0, 0, L1 / 2);
+            const upperMesh = new THREE.Mesh(upperGeo, armMat);
+            upperMesh.castShadow = true;
+            shoulderPivot.add(upperMesh);
+            
+            const elbowJointGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.45, 32);
+            elbowJointGeo.rotateX(Math.PI / 2); 
+            const elbowJoint = new THREE.Mesh(elbowJointGeo, jointMat);
+            elbowJoint.position.set(0, 0, L1);
+            elbowJoint.castShadow = true;
+            shoulderPivot.add(elbowJoint);
+            
+            const elbowPivot = new THREE.Group();
+            elbowPivot.position.set(0, 0, L1);
+            shoulderPivot.add(elbowPivot);
+            
+            const lowerGeo = new THREE.BoxGeometry(0.28, 0.28, L2);
+            lowerGeo.translate(0, 0, L2 / 2);
+            const lowerMesh = new THREE.Mesh(lowerGeo, armMat);
+            lowerMesh.castShadow = true;
+            elbowPivot.add(lowerMesh);
+            
+            const wristJoint = new THREE.Mesh(elbowJointGeo, jointMat);
+            wristJoint.scale.set(0.7, 0.7, 0.7);
+            wristJoint.position.set(0, 0, L2);
+            elbowPivot.add(wristJoint);
+
+            const wristPivot = new THREE.Group();
+            wristPivot.position.set(0, 0, L2);
+            elbowPivot.add(wristPivot);
+
+            const toolBase = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.4), highlightMat);
+            toolBase.position.set(0, 0, 0.2);
+            wristPivot.add(toolBase);
+
+            const housing = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.4), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+            housing.position.set(0, 0, 0.6);
+            wristPivot.add(housing);
+
+            const laserEmitter = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.1, 16), new THREE.MeshStandardMaterial({color: 0x111111}));
+            laserEmitter.rotateX(Math.PI / 2);
+            laserEmitter.position.set(0, -0.05, 0.85);
+            wristPivot.add(laserEmitter);
+
+            // 레이저 색상 설정 (절개: 빨강, 봉합: 파랑)
+            const laserColor = armType === 'CUT' ? 0xef4444 : 0x38bdf8;
+
+            const beamGeo = new THREE.CylinderGeometry(armType==='CUT'?0.005:0.015, armType==='CUT'?0.005:0.015, 1, 16);
+            beamGeo.rotateX(Math.PI / 2);
+            const laserBeam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: laserColor, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
+            laserBeam.visible = false;
+            wristPivot.add(laserBeam);
+
+            const laserLight = new THREE.PointLight(laserColor, 0, 3);
+            laserLight.position.set(0, -0.05, 0.85);
+            wristPivot.add(laserLight);
+
+            return {
+                root: root,
+                shoulderPivot: shoulderPivot,
+                elbowPivot: elbowPivot,
+                wristPivot: wristPivot,
+                laserBeam: laserBeam,
+                laserLight: laserLight,
+                armType: armType,
+                L1: L1,
+                L2: L2,
+                currentPos: new THREE.Vector3(baseX, baseY, baseZ) // 현재 IK 추적 타겟용
+            };
+        }
+
+        function buildSideRobotArms() {
+            armCutRight = createSideArmData('CUT', 7.5, 1.5, 3.0);
+            scene.add(armCutRight.root);
+
+            armSutureLeft = createSideArmData('SUTURE', -7.5, 1.5, 3.0);
+            scene.add(armSutureLeft.root);
+            
+            // 초기 대기 위치로 타겟 설정
+            armCutRight.currentPos.copy(targetIdlePosCut);
+            armSutureLeft.currentPos.copy(targetIdlePosSuture);
+        }
+
+        function initVFX() {
+            const smokeGeo = new THREE.SphereGeometry(0.04, 8, 8);
+            const smokeMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0 });
+            const sparkGeo = new THREE.BoxGeometry(0.015, 0.015, 0.05);
+            const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const sparkMatBlue = new THREE.MeshBasicMaterial({ color: 0x7dd3fc });
+
+            for(let i=0; i<60; i++) {
+                let type = i % 3;
+                let mesh;
+                if (type === 0) mesh = new THREE.Mesh(smokeGeo, smokeMat.clone());
+                else if (type === 1) mesh = new THREE.Mesh(sparkGeo, sparkMat.clone());
+                else mesh = new THREE.Mesh(sparkGeo, sparkMatBlue.clone());
+                
+                mesh.visible = false;
+                scene.add(mesh);
+                vfxParticles.push({ mesh: mesh, type: type, life: 0, vel: new THREE.Vector3() });
+            }
+        }
+
+        function emitVFX(pos, actionType) {
+            vfxParticles.forEach(p => {
+                if(!p.mesh.visible && Math.random() > 0.4) {
+                    if (actionType === 'CUT' && p.type === 2) return; // 절개시 파란불꽃 제외
+                    if (actionType === 'SUTURE' && p.type === 1) return; // 봉합시 노란불꽃 제외
+
+                    p.mesh.visible = true;
+                    p.mesh.position.copy(pos);
+                    p.mesh.position.y += 0.05;
+
+                    if (p.type === 0) { // 연기
+                        p.vel.set((Math.random()-0.5)*0.03, Math.random()*0.05 + 0.03, (Math.random()-0.5)*0.03);
+                        p.life = 1.2;
+                        p.mesh.material.opacity = 0.5;
+                    } else { // 불꽃
+                        p.vel.set((Math.random()-0.5)*0.15, Math.random()*0.1 + 0.08, (Math.random()-0.5)*0.15);
+                        p.life = 1.0;
+                    }
+                }
+            });
+        }
+
+        function updateVFX() {
+            vfxParticles.forEach(p => {
+                if(p.mesh.visible) {
+                    p.mesh.position.add(p.vel);
+                    if (p.type === 0) {
+                        p.life -= 0.02;
+                        p.mesh.scale.setScalar(2.0 - p.life);
+                        p.mesh.material.opacity = p.life * 0.4;
+                    } else {
+                        p.vel.y -= 0.015;
+                        p.life -= 0.08;
+                        p.mesh.lookAt(p.mesh.position.clone().add(p.vel));
+                        p.mesh.scale.setScalar(p.life);
+                    }
+                    if(p.life <= 0) p.mesh.visible = false;
+                }
+            });
+        }
+
+        function playSound(type) {
+            if (!audioCtx) {
+                if (AudioContextClass) audioCtx = new AudioContextClass();
+                else return; 
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'laser_cut') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'laser_suture') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            }
+        }
+
+        function deformAndSurgery(targetPos, isActivating) {
+            if (!stomachMesh) return;
+            
+            const now = Date.now();
+            const geo = stomachMesh.geometry;
+            const posAttr = geo.attributes.position;
+            const colAttr = geo.attributes.color;
+            let needsUpdate = false;
+
+            if (currentToolMode === 'CUT') {
+                if (isActivating) {
+                    if (now - lastActionTime > 30) {
+                        cutPath.push(targetPos.clone());
+                        lastActionTime = now;
+                        emitVFX(targetPos, 'CUT');
+                        playSound('laser_cut');
+                        
+                        let progress = Math.min(100, Math.round((cutPath.length / 80) * 100));
+                        document.getElementById('progress-cut').innerText = `${progress}%`;
+                    }
+                    
+                    // 좁고 세밀한 절개 라인 생성 (반경을 매우 작게)
+                    for (let i = 0; i < posAttr.count; i++) {
+                        const orig = originalStomachPos[i];
+                        const norm = stomachNormals[i];
+                        
+                        // 가장 최근 경로들 검사
+                        for (let j = Math.max(0, cutPath.length - 10); j < cutPath.length; j++) {
+                            // 거리가 0.08 미만일 때만 파이게 함 (매우 좁은 절개)
+                            if (orig.distanceTo(cutPath[j]) < 0.08) {
+                                // 노멀 반대(안쪽)으로 파임
+                                posAttr.setXYZ(i, orig.x - norm.x*0.12, orig.y - norm.y*0.12, orig.z - norm.z*0.12);
+                                colAttr.setXYZ(i, 0.05, 0.01, 0.01); // 검붉은 탄 자국
+                                needsUpdate = true;
+                            }
+                        }
+                    }
+                }
+            } else if (currentToolMode === 'SUTURE') {
+                if (isActivating) {
+                    if (now - lastActionTime > 30) {
+                        suturePath.push(targetPos.clone());
+                        lastActionTime = now;
+                        emitVFX(targetPos, 'SUTURE');
+                        playSound('laser_suture');
+                        
+                        let progress = Math.min(100, Math.round((suturePath.length / 80) * 100));
+                        document.getElementById('progress-suture').innerText = `${progress}%`;
+                    }
+
+                    // 봉합: 레이저가 지나간 자리를 다시 오므리고 봉합된 색상(밝은 핑크)으로 변경
+                    for (let i = 0; i < posAttr.count; i++) {
+                        const orig = originalStomachPos[i];
+                        const norm = stomachNormals[i];
+                        
+                        for (let j = Math.max(0, suturePath.length - 10); j < suturePath.length; j++) {
+                            // 봉합 반경
+                            if (orig.distanceTo(suturePath[j]) < 0.1) {
+                                // 파였던 살을 다시 원래 위치 근처로 회복
+                                posAttr.setXYZ(i, orig.x - norm.x*0.01, orig.y - norm.y*0.01, orig.z - norm.z*0.01);
+                                // 레이저 봉합된 흔적 색상
+                                colAttr.setXYZ(i, 0.8, 0.5, 0.5); 
+                                needsUpdate = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (needsUpdate) {
+                posAttr.needsUpdate = true;
+                colAttr.needsUpdate = true;
+                geo.computeVertexNormals(); 
+            }
+        }
+
+        function updateSideArmKinematics(arm, targetPos, pinch) {
+            // 부드러운 위치 이동 (Lerp)
+            arm.currentPos.lerp(targetPos, 0.1);
+
+            let hoverOffset = (pinch > 0.5 && arm.armType === currentToolMode) ? 0.3 : 1.0;
+            const hoverPos = arm.currentPos.clone();
+            hoverPos.y += hoverOffset;
+            hoverPos.z += 0.1;
+            
+            const baseToTarget = new THREE.Vector3().subVectors(hoverPos, arm.root.position);
+            const dist = baseToTarget.length();
+            const d = Math.max(0.1, Math.min(dist, arm.L1 + arm.L2 - 0.01));
+            
+            const cosAlpha = (arm.L1*arm.L1 + d*d - arm.L2*arm.L2) / (2 * arm.L1 * d);
+            const alpha = Math.acos(Math.max(-1, Math.min(1, cosAlpha)));
+            
+            const cosGamma = (arm.L1*arm.L1 + arm.L2*arm.L2 - d*d) / (2 * arm.L1 * arm.L2);
+            const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma)));
+            const beta = Math.PI - gamma;
+            
+            arm.root.lookAt(hoverPos);
+            arm.shoulderPivot.rotation.x = -alpha;
+            arm.elbowPivot.rotation.x = beta;
+            arm.wristPivot.lookAt(arm.currentPos);
+
+            // 현재 활성화된 모드에 맞는 팔만 레이저를 쏜다
+            if (arm.armType === currentToolMode && pinch > 0.5) {
+                arm.laserBeam.visible = true;
+                arm.laserLight.intensity = arm.armType === 'CUT' ? 10.0 : 5.0; // 절개는 강하게, 봉합은 은은하게
+                
+                const distToSurface = arm.wristPivot.position.clone().applyMatrix4(arm.wristPivot.matrixWorld).distanceTo(arm.currentPos);
+                arm.laserBeam.scale.z = distToSurface;
+                arm.laserBeam.position.z = distToSurface / 2 + 0.85; 
+                
+                deformAndSurgery(arm.currentPos, true);
+            } else if (arm.laserBeam) {
+                arm.laserBeam.visible = false;
+                arm.laserLight.intensity = 0;
+            }
+        }
+
+        function updateMissionText() {
+            const textEl = document.getElementById('instruction-text');
+            const toast = document.getElementById('mission-toast');
+            const badge = document.getElementById('mission-badge');
+
+            if (currentToolMode === 'CUT') {
+                textEl.innerText = "[레이저 절개] 우측 로봇팔로 환부를 얇고 정밀하게 절개하세요.";
+                textEl.className = "text-red-400 text-sm font-bold";
+                toast.className = "glass-minimal px-8 py-3 rounded-full border border-red-500/50 flex items-center gap-3 shadow-lg pulse-effect transition-colors duration-500";
+                badge.className = "w-3 h-3 rounded-full bg-red-500 animate-ping";
+            } else if (currentToolMode === 'SUTURE') {
+                textEl.innerText = "[레이저 봉합] 좌측 로봇팔로 절개된 부위를 쏘아 봉합하세요.";
+                textEl.className = "text-blue-300 text-sm font-bold";
+                toast.className = "glass-minimal px-8 py-3 rounded-full border border-blue-500/50 flex items-center gap-3 shadow-lg pulse-effect transition-colors duration-500";
+                badge.className = "w-3 h-3 rounded-full bg-blue-500 animate-ping";
+            }
+        }
+
+        let currentTargetPos = new THREE.Vector3(0, 0.5, 0);
+        let targetPinch = 0;
+
+        function initControls() {
+            if (typeof Leap !== 'undefined') {
+                Leap.loop({ enableGestures: true }, function (frame) {
+                    if (controlMode !== 'LEAP') return;
+                    if (frame.hands.length > 0) {
+                        const hand = frame.hands[0];
+                        const x = (hand.palmPosition[0] / 60);
+                        const z = hand.palmPosition[2] / 60;
+                        
+                        raycaster.set(new THREE.Vector3(x, 5, z), new THREE.Vector3(0, -1, 0));
+                        let intersects = stomachMesh ? raycaster.intersectObject(stomachMesh) : [];
+                        
+                        if(intersects.length > 0) currentTargetPos.copy(intersects[0].point);
+                        else currentTargetPos.set(x, 0.5, z);
+                        
+                        targetPinch = hand.pinchStrength;
+                        updateUI(currentTargetPos, targetPinch);
+                    }
+                });
+            }
+
+            window.addEventListener('mousemove', (e) => {
+                if (controlMode !== 'SIMULATOR') return;
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+                
+                if (stomachMesh) {
+                    let intersects = raycaster.intersectObject(stomachMesh);
+                    if (intersects.length > 0) {
+                        currentTargetPos.lerp(intersects[0].point, 0.4);
+                    } else {
+                        let planeIntersect = new THREE.Vector3();
+                        raycaster.ray.intersectPlane(planeFallback, planeIntersect);
+                        if(planeIntersect) currentTargetPos.lerp(planeIntersect, 0.4);
+                    }
+                }
+                updateUI(currentTargetPos, targetPinch);
+            });
+
+            window.addEventListener('mousedown', () => { if (controlMode === 'SIMULATOR') targetPinch = 1.0; });
+            window.addEventListener('mouseup', () => { if (controlMode === 'SIMULATOR') targetPinch = 0.0; });
+        }
+
+        function updateUI(pos, pinch) {
+            let power = Math.round(pinch * 80);
+            document.getElementById('pinch-val').innerText = `${power} W`;
+            document.getElementById('pos-z').innerText = `${(pos.y * 10).toFixed(1)} mm`; 
+            
+            if(pinch > 0.5) document.getElementById('pinch-val').classList.replace('text-emerald-400', 'text-red-500');
+            else document.getElementById('pinch-val').classList.replace('text-red-500', 'text-emerald-400');
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const now = Date.now();
+
+            if (organGroup) organGroup.position.y = Math.sin(now * 0.001) * 0.04;
+
+            if (controlMode === 'DEMO') {
+                demoAngle += 0.012;
+                currentTargetPos.set(Math.sin(demoAngle)*0.8, 0, Math.cos(demoAngle*1.5)*0.3 + 0.2);
+                targetPinch = (Math.sin(demoAngle*8) > 0.5) ? 1.0 : 0.0;
+                
+                raycaster.set(new THREE.Vector3(currentTargetPos.x, 5, currentTargetPos.z), new THREE.Vector3(0, -1, 0));
+                let intersects = stomachMesh ? raycaster.intersectObject(stomachMesh) : [];
+                if(intersects.length > 0) currentTargetPos.y = intersects[0].point.y;
+                updateUI(currentTargetPos, targetPinch);
+            }
+
+            // 모드에 따라 움직이는 팔과 대기하는 팔을 분리
+            if (currentToolMode === 'CUT') {
+                updateSideArmKinematics(armCutRight, currentTargetPos, targetPinch);
+                // 좌측 팔은 살짝 위아래로 움직이며 대기
+                let idleLeft = targetIdlePosSuture.clone();
+                idleLeft.y += Math.sin(now * 0.002) * 0.1;
+                updateSideArmKinematics(armSutureLeft, idleLeft, 0);
+            } else {
+                updateSideArmKinematics(armSutureLeft, currentTargetPos, targetPinch);
+                // 우측 팔은 살짝 위아래로 움직이며 대기
+                let idleRight = targetIdlePosCut.clone();
+                idleRight.y += Math.cos(now * 0.002) * 0.1;
+                updateSideArmKinematics(armCutRight, idleRight, 0);
+            }
+
+            if (targetMarker) {
+                targetMarker.position.copy(currentTargetPos);
+                
+                let closestNorm = new THREE.Vector3(0,1,0);
+                let minDist = 999;
+                for(let i=0; i<originalStomachPos.length; i++) {
+                    let d = originalStomachPos[i].distanceTo(currentTargetPos);
+                    if(d < minDist) { minDist = d; closestNorm = stomachNormals[i]; }
+                }
+                
+                const up = new THREE.Vector3(0, 0, 1);
+                targetMarker.quaternion.setFromUnitVectors(up, closestNorm);
+                targetMarker.children[1].rotation.z -= 0.05; 
+                
+                let colorHex = currentToolMode === 'CUT' ? 
+                                (targetPinch > 0.5 ? 0xef4444 : 0x38bdf8) : 
+                                (targetPinch > 0.5 ? 0x38bdf8 : 0x10b981);
+
+                targetMarker.children.forEach(child => child.material.color.setHex(colorHex));
+            }
+
+            updateVFX();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = () => {
+            init3DScene();
+            initControls();
+            
+            // 모드 전환 버튼 이벤트
+            const btnMenuCut = document.getElementById('btn-menu-cut');
+            const btnMenuSuture = document.getElementById('btn-menu-suture');
+
+            btnMenuCut.onclick = () => {
+                currentToolMode = 'CUT';
+                btnMenuCut.classList.add('active');
+                btnMenuCut.classList.remove('hover:bg-slate-800/50');
+                btnMenuSuture.classList.remove('active');
+                btnMenuSuture.classList.add('hover:bg-slate-800/50');
+                updateMissionText();
+            };
+
+            btnMenuSuture.onclick = () => {
+                currentToolMode = 'SUTURE';
+                btnMenuSuture.classList.add('active');
+                btnMenuSuture.classList.remove('hover:bg-slate-800/50');
+                btnMenuCut.classList.remove('active');
+                btnMenuCut.classList.add('hover:bg-slate-800/50');
+                updateMissionText();
+            };
+
+            const btnLeap = document.getElementById('btn-mode-leap');
+            const btnSim = document.getElementById('btn-mode-sim');
+            const btnDemo = document.getElementById('btn-mode-demo');
+
+            const resetBtns = (activeBtn) => {
+                [btnLeap, btnSim, btnDemo].forEach(b => {
+                    b.className = "px-5 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all flex items-center gap-2 text-sm border border-transparent hover:border-slate-600";
+                });
+                activeBtn.className = "px-5 py-2.5 rounded-lg bg-blue-600 text-white font-bold shadow-lg transition-all flex items-center gap-2 hover:bg-blue-500 text-sm";
+            };
+
+            btnLeap.onclick = () => { controlMode = 'LEAP'; resetBtns(btnLeap); };
+            btnSim.onclick = () => { controlMode = 'SIMULATOR'; resetBtns(btnSim); };
+            btnDemo.onclick = () => { controlMode = 'DEMO'; resetBtns(btnDemo); demoAngle = 0; };
+
+            document.getElementById('btn-reset').onclick = () => {
+                cutPath = [];
+                suturePath = [];
+                
+                const posAttr = stomachMesh.geometry.attributes.position;
+                const colAttr = stomachMesh.geometry.attributes.color;
+                for(let i=0; i<posAttr.count; i++) {
+                    posAttr.setXYZ(i, originalStomachPos[i].x, originalStomachPos[i].y, originalStomachPos[i].z);
+                    colAttr.setXYZ(i, 1, 1, 1);
+                }
+                posAttr.needsUpdate = true;
+                colAttr.needsUpdate = true;
+                stomachMesh.geometry.computeVertexNormals();
+                
+                document.getElementById('progress-cut').innerText = "0%";
+                document.getElementById('progress-suture').innerText = "0%";
+                
+                btnMenuCut.click(); // 절개 모드로 초기화
+            };
+
+            resetBtns(btnSim);
+            updateMissionText();
+            animate();
+        };
+    </script>
+</body>
+</html>
