@@ -16,8 +16,8 @@ import * as THREE from 'three';
 // 세로축은 앞뒤(palmZ)를 쓴다: 손 높이는 거의 안 변하지만 앞뒤는 잘 움직이기 때문.
 const NDC_X = [-140, 140]; // 좌우(mm)
 const NDC_Z = [55, 155];   // 앞뒤(mm): 멀리=화면 위, 가까이=화면 아래
-const GAIN_X = 0.28;       // 좌우 매핑 폭(작을수록 양손이 가운데로 모임)
-const GAIN_Y = 0.6;        // 상하 매핑 폭(크게 → 위아래 반응 잘 됨)
+const GAIN_X = 0.42;       // 좌우 매핑 폭(클수록 이동 범위 넓음)
+const GAIN_Y = 0.75;       // 상하 매핑 폭(클수록 이동 범위 넓음)
 const MIRROR_X = false;    // 센서가 뒤집혔을 때만 true
 
 function emptyHand() {

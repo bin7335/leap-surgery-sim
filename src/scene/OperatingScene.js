@@ -27,7 +27,7 @@ export class OperatingScene {
     this.camera.lookAt(0, -0.5, 0);
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // 고DPI 렌더 부하 절감
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -43,7 +43,7 @@ export class OperatingScene {
     spot.angle = Math.PI / 3;
     spot.penumbra = 0.6;
     spot.castShadow = true;
-    spot.shadow.mapSize.set(2048, 2048);
+    spot.shadow.mapSize.set(1024, 1024); // 그림자 해상도 절반(부하 절감, 체감 차이 미미)
     spot.shadow.bias = -0.0005;
     scene.add(spot);
     const s1 = new THREE.PointLight(0x9ad7ff, 0.4, 18); s1.position.set(5, 3, 3); scene.add(s1);

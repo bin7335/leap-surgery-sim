@@ -139,6 +139,12 @@ export class Tissue {
       this._lastStitch = pos.clone();
       this.suturePathLen++;
       this.overlay.add(this._makeStitch(pos, normal));
+      // 무한 누적 방지: 오래된 바늘땀부터 제거(드로우콜 폭증 → FPS 저하 방지)
+      while (this.overlay.children.length > 240) {
+        const old = this.overlay.children[0];
+        old.traverse((o) => o.geometry?.dispose?.());
+        this.overlay.remove(old);
+      }
     }
     return Math.min(100, Math.round((this.suturePathLen / 20) * 100));
   }

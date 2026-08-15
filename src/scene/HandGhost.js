@@ -87,6 +87,17 @@ export class HandGhost {
     this.hitLight = new THREE.PointLight(this.hue, 0, 3);
     scene.add(this.hitLight);
 
+    // 마우스/시연 모드용: 로봇 손 대신 "레이저 스타일러스(도구)"
+    this.stylus = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.06, 1, 12), this.metal);
+    this.stylus.visible = false;
+    scene.add(this.stylus);
+    this.stylusTip = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 16, 16),
+      new THREE.MeshBasicMaterial({ color: this.hue })
+    );
+    this.stylusTip.visible = false;
+    scene.add(this.stylusTip);
+
     this._m = new THREE.Matrix4();
     this._a = new THREE.Vector3();
     this._b = new THREE.Vector3();
@@ -96,7 +107,9 @@ export class HandGhost {
     this._upv = new THREE.Vector3();
     this._up = new THREE.Vector3(0, 1, 0);
     this._q = new THREE.Quaternion();
-    this._sideSign = 1; // 양손 모두 오른쪽-아래 배치 → 빔이 왼쪽 위로, 두 손이 벌어지지 않음
+    this._tmp = new THREE.Vector3();
+    // 오른손=오른쪽-아래 배치(빔 11시/왼쪽위), 왼손=왼쪽-아래 배치(빔 2시/오른쪽위)
+    this._sideSign = side === 'right' ? 1 : -1;
   }
 
   /**
@@ -107,12 +120,16 @@ export class HandGhost {
    * @param {THREE.Vector3} normal 표면 법선(레티클 방향)
    */
   update(hand, target, pinch, present, normal) {
-    this.group.visible = present;
     this.reticle.visible = present;
-    this.guide.visible = present;
-    if (!present) { this.beam.visible = false; this.hit.visible = false; this.hitLight.intensity = 0; return; }
+    if (!present) {
+      this.group.visible = false; this.beam.visible = false; this.hit.visible = false;
+      this.hitLight.intensity = 0; this.stylus.visible = false; this.stylusTip.visible = false;
+      return;
+    }
 
-    const fingers = (hand && hand.fingers && hand.fingers.length) ? this._fromHand(hand) : this._synthesize(pinch);
+    // 립모션(실제 손 데이터) → 로봇 손 / 마우스·시연 → 레이저 스타일러스(도구)
+    const isLeap = !!(hand && hand.fingers && hand.fingers.length);
+    const fingers = isLeap ? this._fromHand(hand) : this._synthesize(pinch);
     // 손끝이 조준점 기준 "일정 오프셋"에 항상 오도록 앵커링 → 양손 빔이 동일/일관
     this._dir.copy(this.camera.position).sub(target).normalize();
     this._right.setFromMatrixColumn(this.camera.matrixWorld, 0);
@@ -131,19 +148,25 @@ export class HandGhost {
     this.group.updateMatrixWorld(true);
     const tip = desiredTip;
 
-    // 뼈대(원통) 배치 + 관절 구슬
-    let bi = 0, ji = 0;
-    this.joints.setMatrixAt(ji++, this._m.makeTranslation(0, 0.06, 0)); // 손바닥
-    for (const f of fingers) {
-      for (let k = 0; k < f.length; k++) {
-        this.joints.setMatrixAt(ji++, this._m.makeTranslation(f[k].x, f[k].y, f[k].z));
-        if (k < f.length - 1) this._orientBone(this.bones[bi++], f[k], f[k + 1]);
-      }
-    }
-    for (; bi < this.bones.length; bi++) this.bones[bi].visible = false;
-    this.joints.instanceMatrix.needsUpdate = true;
+    // 모드별 손/도구 표시 전환
+    this.group.visible = isLeap;       // 로봇 손은 립모션 때만
+    this.stylus.visible = !isLeap;     // 스타일러스는 마우스/시연 때만
+    this.stylusTip.visible = !isLeap;
 
-    // (tip = desiredTip, 이미 위에서 앵커링됨)
+    if (isLeap) {
+      // 로봇 손: 뼈대(원통) + 관절 구슬
+      let bi = 0, ji = 0;
+      this.joints.setMatrixAt(ji++, this._m.makeTranslation(0, 0.06, 0)); // 손바닥
+      for (const f of fingers) {
+        for (let k = 0; k < f.length; k++) {
+          this.joints.setMatrixAt(ji++, this._m.makeTranslation(f[k].x, f[k].y, f[k].z));
+          if (k < f.length - 1) this._orientBone(this.bones[bi++], f[k], f[k + 1]);
+        }
+      }
+      for (; bi < this.bones.length; bi++) this.bones[bi].visible = false;
+      this.joints.instanceMatrix.needsUpdate = true;
+    }
+
     const active = pinch > PINCH_FIRE;
     const col = active ? this.hue : AIM_GREEN;
 
@@ -169,6 +192,15 @@ export class HandGhost {
       this.hitLight.intensity = this.tool === 'CUT' ? 6 : 3;
     } else {
       this.hitLight.intensity = 0;
+    }
+
+    // 마우스/시연 모드: 스타일러스(도구)를 빔 축에 맞춰 배치(끝이 tip = 발사점)
+    if (!isLeap) {
+      const beamDir = this._b.copy(target).sub(tip).normalize();
+      const base = this._tmp.copy(tip).addScaledVector(beamDir, -0.5);
+      this._orientBone(this.stylus, base, tip);
+      this.stylusTip.position.copy(tip);
+      this.stylusTip.material.color.setHex(col);
     }
 
     // 점선 가이드는 숨김(초록 조준 빔이 그 역할)

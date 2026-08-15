@@ -10,7 +10,10 @@ const _v = new THREE.Vector3();
  * "찌지직" 방지: 깊이 누적 + 부드러운 감쇠, 법선 재계산은 스로틀링.
  */
 export class Deformer {
-  constructor() { this._normalDirty = 0; }
+  constructor() {
+    this._normalDirty = 0;
+    this.lastMs = 0; // 직전 변형 1회 소요 시간(ms) — 성능 계측용
+  }
 
   prepare(mesh) {
     const geo = mesh.geometry;
@@ -33,6 +36,7 @@ export class Deformer {
   suture(mesh, worldPoint, worldRadius = 0.3) { this._apply(mesh, worldPoint, worldRadius, 'SUTURE'); }
 
   _apply(mesh, worldPoint, worldRadius, mode) {
+    const t0 = performance.now();
     this.prepare(mesh);
     const geo = mesh.geometry;
     const pos = geo.attributes.position;
@@ -74,6 +78,7 @@ export class Deformer {
       col.needsUpdate = true;
       if (++this._normalDirty >= 5) { geo.computeVertexNormals(); this._normalDirty = 0; } // 스로틀링
     }
+    this.lastMs = performance.now() - t0;
   }
 
   reset(mesh) {
