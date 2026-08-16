@@ -39,6 +39,24 @@
         </div>
       </header>
 
+      <!-- 시작: 모드 선택 오버레이 -->
+      <div id="mode-select" class="mode-overlay">
+        <div class="mode-card">
+          <h1>🩺 립모션 로봇수술 체험</h1>
+          <p>손 집게(핀치)로 레이저를 조작해 수술해보세요</p>
+          <div class="mode-buttons">
+            <button id="btn-practice">🩹 연습 모드<small>자유롭게 절개·봉합 연습</small></button>
+            <button id="btn-challenge">🏆 기록 도전<small>종양 제거 타임어택</small></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 도전 기록 (기록 도전 모드에서 표시) -->
+      <div id="records" class="panel records" hidden>
+        <div class="records__head">🏆 도전 기록 <span id="mission-timer">0.0s</span></div>
+        <ol id="records-list"></ol>
+      </div>
+
       <!-- 성능 계측 (?perf 로 표시) -->
       <div id="perf" class="panel perf" hidden>
         <span id="perf-fps">-- FPS</span>
@@ -77,7 +95,10 @@
           </div>
         </div>
 
-        <button id="reset" class="panel reset-btn">↻ 새 수술 준비</button>
+        <div class="footer-right">
+          <button id="btn-mode-select" class="panel reset-btn">🎮 모드 선택</button>
+          <button id="reset" class="panel reset-btn">↻ 새 수술 준비</button>
+        </div>
       </footer>
     </div>
 

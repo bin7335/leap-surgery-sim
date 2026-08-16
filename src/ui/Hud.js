@@ -31,6 +31,12 @@ export class Hud {
     });
   }
 
+  /** 코드에서 제어 모드를 바꿀 때 버튼 활성 표시 동기화(자동 어트랙트용) */
+  setControlActive(mode) {
+    document.getElementById('control-switch').querySelectorAll('button')
+      .forEach((b) => b.classList.toggle('is-active', b.dataset.control === mode));
+  }
+
   setStatus(state) {
     const label = { mock: '목(mock) 데이터', connecting: '연결 중…', live: '립모션 연결됨', error: '연결 끊김' }[state] || state;
     this.$status.className = `panel status status--${state}`;

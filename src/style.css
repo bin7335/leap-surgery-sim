@@ -105,6 +105,40 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .reset-btn { padding: 14px 22px; color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; border-radius: 16px; }
 .reset-btn:hover { background: rgba(30,41,59,0.9); color: #fff; }
 
+/* 시작: 모드 선택 오버레이 */
+.mode-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 12, 20, 0.55); backdrop-filter: blur(10px); }
+.mode-overlay[hidden] { display: none; }
+.mode-card { background: var(--panel); border: 1px solid var(--border); border-radius: 24px;
+  padding: 40px 48px; text-align: center; box-shadow: 0 8px 60px rgba(0,0,0,0.8); }
+.mode-card h1 { margin: 0 0 8px; font-size: 28px; color: #fff; }
+.mode-card p { margin: 0 0 28px; color: var(--muted); font-size: 15px; }
+.mode-buttons { display: flex; gap: 18px; }
+.mode-buttons button { flex: 1; display: flex; flex-direction: column; gap: 8px; align-items: center;
+  padding: 26px 34px; font-size: 19px; font-weight: 800; color: #fff; cursor: pointer;
+  background: rgba(56,189,248,0.1); border: 1.5px solid rgba(56,189,248,0.45); border-radius: 18px;
+  transition: transform .12s, background .12s; }
+.mode-buttons button:hover { transform: translateY(-3px); background: rgba(56,189,248,0.22); }
+.mode-buttons button small { font-size: 12px; font-weight: 500; color: var(--muted); }
+#btn-challenge { background: rgba(255,209,102,0.08); border-color: rgba(255,209,102,0.45); }
+#btn-challenge:hover { background: rgba(255,209,102,0.18); }
+
+/* 도전 기록 패널 */
+.records { position: absolute; top: 124px; right: 16px; z-index: 20; padding: 14px 18px; min-width: 172px; }
+.records__head { font-size: 13px; font-weight: 800; color: #ffd166; display: flex; justify-content: space-between; gap: 12px; }
+#mission-timer { font-family: Consolas, monospace; color: var(--accent); }
+.records ol { margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; }
+.records li { padding: 3px 0; color: var(--text); }
+.records li.is-new { color: #ffd166; font-weight: 800; }
+
+/* 미션 안내 배지 */
+.mission--game { animation: none; font-weight: 800; gap: 8px; }
+.mission--cut { color: #ff8ba0; border-color: rgba(255,90,122,0.55); }
+.mission--suture { color: #7fdcff; border-color: rgba(90,209,255,0.55); }
+.mission--done { color: #8effb4; border-color: rgba(125,255,169,0.55); }
+
+.footer-right { display: flex; gap: 10px; }
+
 /* 성능 계측 오버레이 */
 .perf { position: absolute; top: 140px; left: 16px; z-index: 30; padding: 8px 14px;
   display: flex; gap: 14px; font-family: Consolas, monospace; font-size: 12px; color: #9fe8b8; }

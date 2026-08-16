@@ -5,6 +5,7 @@ import { Vfx } from './Vfx.js';
 import { HandGhost } from './HandGhost.js';
 import { ModelField } from './ModelField.js';
 import { Deformer } from './Deformer.js';
+import { addDressing } from './Dressing.js';
 
 /**
  * 수술 장면: 렌더러/카메라/조명/해부구조/양손(도구)/VFX.
@@ -55,6 +56,8 @@ export class OperatingScene {
     this.deformer = new Deformer(); // 실제 메시 변형(갈라짐/아뭄)
     this.handRight = new HandGhost(scene, 'right', this.camera); // 절개
     this.handLeft = new HandGhost(scene, 'left', this.camera);   // 봉합
+
+    addDressing(scene); // 수술대 + 수술포(개창) — 수술 장면 연출
 
     this._fieldBounds = null; // 수술 영역(장기)의 XZ 바운딩 캐시
     this._tryLoadModel();
@@ -123,7 +126,7 @@ export class OperatingScene {
       if (tool === 'CUT') this.deformer.cut(this.surgeryMesh, h.target);
       else this.deformer.suture(this.surgeryMesh, h.target);
       // 진행률 + 봉합 바늘땀(overlay)은 Tissue가 담당(절개선 그림은 제거됨)
-      return { tool, progress: this.tissue.surgery(h.target, tool, h.normal) };
+      return { tool, progress: this.tissue.surgery(h.target, tool, h.normal), point: h.target.clone() };
     }
     return null;
   }
