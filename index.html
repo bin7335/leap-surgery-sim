@@ -65,6 +65,18 @@
         </div>
       </div>
 
+      <!-- 도전 결과 창 -->
+      <div id="result" class="mode-overlay" hidden>
+        <div class="mode-card">
+          <h1>🎉 수술 성공!</h1>
+          <p id="result-text">기록 --초</p>
+          <div class="mode-buttons">
+            <button id="btn-retry">🔁 다시 도전</button>
+            <button id="btn-home" class="btn-ghost">🏠 처음으로</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 도전 기록 (기록 도전 모드에서 표시) -->
       <div id="records" class="panel records" hidden>
         <div class="records__head">🏆 도전 기록 <span id="mission-timer">0.0s</span></div>
@@ -84,10 +96,6 @@
         <div id="status" class="panel status status--mock">
           <span class="status__dot"></span>
           <span id="status-text" class="status__text">목(mock) 데이터</span>
-        </div>
-        <div class="panel mode-switch" id="mount-switch">
-          <button data-mount="desktop" class="is-active">데스크톱</button>
-          <button data-mount="hmd">헤드마운트</button>
         </div>
         <div class="panel mode-switch" id="game-switch">
           <button data-game="practice">🩹 연습</button>

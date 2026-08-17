@@ -20,7 +20,6 @@ let autoAttract = false;
 
 const hud = new Hud({
   onControl: (m) => { autoAttract = false; input.setControlMode(m); }, // 수동 선택은 어트랙트 해제
-  onMount: (m) => input.setMountMode(m),
   onReset: () => { scene.reset(); hud.resetProgress(); },
 });
 
@@ -45,6 +44,7 @@ function startPractice() {
   gameMode = 'practice';
   $modeSelect.hidden = true;
   $nameEntry.hidden = true;
+  document.getElementById('result').hidden = true;
   $records.hidden = true;
   mission.stop();
   scene.reset();
@@ -77,11 +77,29 @@ function showModeSelect() {
   mission.stop();
   $records.hidden = true;
   $nameEntry.hidden = true;
+  document.getElementById('result').hidden = true;
   $modeSelect.hidden = false;
   scene.reset();
   hud.resetProgress();
   syncGameSwitch();
 }
+// 도전 완료 → 결과 창(자동 재도전 없음)
+const $result = document.getElementById('result');
+mission.onFinished = ({ name, sec, penalty }) => {
+  const pen = penalty > 0.05 ? ` (페널티 +${penalty.toFixed(1)}초)` : '';
+  document.getElementById('result-text').textContent = `${name} — 기록 ${sec.toFixed(1)}초${pen}`;
+  $result.hidden = false;
+};
+document.getElementById('btn-retry').addEventListener('click', () => {
+  $result.hidden = true;
+  scene.reset(); hud.resetProgress();
+  askChallengerName(); // 다음 도전자 이름부터
+});
+document.getElementById('btn-home').addEventListener('click', () => {
+  $result.hidden = true;
+  showModeSelect();
+});
+
 document.getElementById('btn-practice').addEventListener('click', startPractice);
 document.getElementById('btn-challenge').addEventListener('click', askChallengerName);
 document.getElementById('btn-name-start').addEventListener('click', startChallenge);

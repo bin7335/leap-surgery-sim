@@ -15,6 +15,16 @@ export class WebSocketLeapSource extends LeapSource {
     this._url = url;
     this._ws = null;
     this._retry = null;
+    this._lastFrame = 0;
+    this._live = false;
+    // 서비스만 살아있고 기기가 없으면 소켓은 열리지만 프레임이 안 온다 →
+    // 실제 프레임이 흐를 때만 'live', 2초 이상 끊기면 'nodevice'
+    this._heartbeat = setInterval(() => {
+      if (this._ws?.readyState === WebSocket.OPEN && this._live && performance.now() - this._lastFrame > 2000) {
+        this._live = false;
+        this._emit('status', 'nodevice');
+      }
+    }, 1000);
   }
 
   connect() {
@@ -33,22 +43,24 @@ export class WebSocketLeapSource extends LeapSource {
     this._ws = ws;
 
     ws.onopen = () => {
-      // 포커스/백그라운드 트래킹 및 마운트 모드 설정 전송
+      // 포커스/백그라운드 트래킹 설정 전송. 연결됨 표시는 실제 프레임 수신 시점에.
       ws.send(JSON.stringify({ focused: true }));
       ws.send(JSON.stringify({ background: true }));
-      ws.send(JSON.stringify({ optimizeHMD: this.mode === 'hmd' }));
-      this._emit('status', 'live');
+      this._emit('status', 'nodevice'); // 프레임이 오기 전까지는 기기 미확인
     };
 
     ws.onmessage = (evt) => {
       let data;
       try { data = JSON.parse(evt.data); } catch { return; }
       if (!data || !Array.isArray(data.hands)) return; // 버전 메시지 등은 무시
+      this._lastFrame = performance.now();
+      if (!this._live) { this._live = true; this._emit('status', 'live'); }
       this._emit('frame', this._normalize(data));
     };
 
     ws.onerror = () => { /* onclose에서 재시도 처리 */ };
     ws.onclose = () => {
+      this._live = false;
       this._emit('status', 'error');
       this._scheduleRetry();
     };
@@ -101,6 +113,7 @@ export class WebSocketLeapSource extends LeapSource {
   }
 
   dispose() {
+    clearInterval(this._heartbeat);
     clearTimeout(this._retry);
     if (this._ws) {
       this._ws.onclose = null; // 재시도 방지

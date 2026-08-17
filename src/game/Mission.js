@@ -45,10 +45,11 @@ export class Mission {
   _newSite() {
     this._cleanup();
     let hit = null;
-    for (let i = 0; i < 60; i++) {
-      this._ndc.set((Math.random() * 2 - 1) * 0.35, (Math.random() * 2 - 1) * 0.35);
-      hit = this.scene.raycastOrganFromNDC(this._ndc); // 장기 밖(수술포/배경)은 null
-      if (hit) break;
+    for (let i = 0; i < 80; i++) {
+      this._ndc.set((Math.random() * 2 - 1) * 0.3, (Math.random() * 2 - 1) * 0.3);
+      const h = this.scene.raycastOrganFromNDC(this._ndc); // 장기 밖(수술포/배경)은 null
+      // 수술포(y=-0.55) 아래 가려진 부위는 제외 — 보이는 영역에만 종양 배치
+      if (h && h.point.y > -0.2) { hit = h; break; }
     }
     if (!hit) { setTimeout(() => { if (this.state !== 'IDLE') this._newSite(); else this.start(); }, 1500); return; }
 
@@ -137,13 +138,11 @@ export class Mission {
     const raw = (performance.now() - this.t0) / 1000;
     const sec = raw + this.penalty;
     const penaltyMsg = this.penalty > 0.05 ? ` (페널티 +${this.penalty.toFixed(1)}초 포함)` : '';
-    this._say(`✅ 수술 성공! 기록 ${sec.toFixed(1)}초${penaltyMsg} — 잠시 후 다음 도전`, 'done');
+    this._say(`✅ 수술 성공! 기록 ${sec.toFixed(1)}초${penaltyMsg}`, 'done');
     this._cleanup(false);
     this._saveRecord(sec);
-    setTimeout(() => {
-      if (this.state !== 'DONE') return;
-      this.scene.reset(); this.hud.resetProgress(); this.start();
-    }, 5000);
+    // 자동 재도전 대신 결과 창을 띄운다(main에서 배선)
+    this.onFinished?.({ name: this.playerName, sec, penalty: this.penalty });
   }
 
   /** 연습 모드 진입 등 미션 중단 */

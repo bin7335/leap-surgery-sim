@@ -23,6 +23,7 @@ export class Deformer {
     geo.userData._orig = new Float32Array(pos.array);              // 원본 위치
     geo.userData._nrm = new Float32Array(geo.attributes.normal.array); // 원본 법선(파는 방향)
     geo.userData._depth = new Float32Array(pos.count);             // 누적 깊이
+    geo.userData._scar = new Float32Array(pos.count);              // 절개 이력(최대 깊이) — 켈로이드 근거
     if (!geo.attributes.color) {
       geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(pos.count * 3).fill(1), 3));
     }
@@ -42,6 +43,7 @@ export class Deformer {
     const pos = geo.attributes.position;
     const col = geo.attributes.color;
     const orig = geo.userData._orig, nrm = geo.userData._nrm, depth = geo.userData._depth;
+    const scar = geo.userData._scar;
 
     // 월드 좌표/반경 → 메시 로컬 (모델 스케일 보정)
     const lp = mesh.worldToLocal(worldPoint.clone());
@@ -60,25 +62,33 @@ export class Deformer {
       const t = 1 - Math.sqrt(d2) / r;
       const fall = t * t * (3 - 2 * t);
 
-      if (mode === 'CUT') depth[i] = Math.min(maxDepth, depth[i] + fall * maxDepth * 0.06); // 약하게 진행
-      // 봉합: 아물면서 0을 지나 살짝 볼록(-0.03)까지 — 켈로이드처럼 미세하게 도드라진 흉터
-      else depth[i] = Math.max(-0.03, depth[i] - fall * maxDepth * 0.20);
-
-      const dep = depth[i];
-      pos.setXYZ(i, orig[ix] - nrm[ix] * dep, orig[ix + 1] - nrm[ix + 1] * dep, orig[ix + 2] - nrm[ix + 2] * dep);
       if (mode === 'CUT') {
-        const c = 1 - Math.min(1, dep / maxDepth) * 0.62;
+        depth[i] = Math.min(maxDepth, depth[i] + fall * maxDepth * 0.06); // 약하게 진행
+        scar[i] = Math.max(scar[i], depth[i]); // 절개 이력 기록(깊이 최대치)
+        const c = 1 - Math.min(1, depth[i] / maxDepth) * 0.62;
         col.setXYZ(i, c, c * 0.45, c * 0.42); // 파일수록 검붉게
       } else {
-        col.setXYZ(i, 0.96, 0.84, 0.85); // 켈로이드 흉터: 옅게만 남는 색(조잡한 자국 대신)
+        // 봉합: 절개됐던 자리는 원형으로 돌아가지 않고 "융기된 켈로이드"로 남는다.
+        // 흉터 높이는 절개가 깊었을수록 도드라짐(음수 depth = 바깥 볼록).
+        const wasCut = scar[i] > maxDepth * 0.1;
+        const target = wasCut ? -Math.min(scar[i] * 0.9, maxDepth * 0.6) : 0; // 뚜렷하게 융기
+        depth[i] = Math.max(target, depth[i] - fall * maxDepth * 0.20);
+        if (wasCut) col.setXYZ(i, 0.95, 0.5, 0.55); // 켈로이드: 진한 장밋빛 흉터 라인
+        else col.setXYZ(i, 1, 1, 1);                // 절개 안 됐던 주변은 원래 색 복구
       }
+      const dep = depth[i];
+      pos.setXYZ(i, orig[ix] - nrm[ix] * dep, orig[ix + 1] - nrm[ix + 1] * dep, orig[ix + 2] - nrm[ix + 2] * dep);
       changed = true;
     }
 
     if (changed) {
       pos.needsUpdate = true;
       col.needsUpdate = true;
-      if (++this._normalDirty >= 5) { geo.computeVertexNormals(); this._normalDirty = 0; } // 스로틀링
+      if (++this._normalDirty >= 3) { // 스로틀링(조명 매끈 ↔ 비용 균형)
+        geo.computeVertexNormals();
+        geo.boundsTree?.refit?.(); // 변형 반영해 레이캐스트 정확도 유지
+        this._normalDirty = 0;
+      }
     }
     this.lastMs = performance.now() - t0;
   }
@@ -90,6 +100,7 @@ export class Deformer {
     const col = geo.attributes.color;
     const orig = geo.userData._orig;
     geo.userData._depth.fill(0);
+    geo.userData._scar.fill(0);
     for (let i = 0; i < pos.count; i++) {
       const ix = i * 3;
       pos.setXYZ(i, orig[ix], orig[ix + 1], orig[ix + 2]);

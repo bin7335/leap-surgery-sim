@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+
+// BVH 가속 레이캐스트(세분화된 고밀도 메시에서도 조준이 빠르게)
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 import { Tissue } from './Tissue.js';
 import { Vfx } from './Vfx.js';
 import { HandGhost } from './HandGhost.js';
@@ -17,6 +23,7 @@ export class OperatingScene {
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this._audioCtx = null;
     this._lastAction = { CUT: 0, SUTURE: 0 };
+    this._lastPt = { CUT: null, SUTURE: null }; // 스트로크 보간용 직전 적용 지점
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x9db9c8, 0.02);
@@ -81,6 +88,9 @@ export class OperatingScene {
     ModelField.load().then(({ root, surgeryMesh }) => {
       this.scene.add(root);
       if (surgeryMesh) {
+        // (세분화는 이 모델의 UV와 충돌해 격자 아티팩트 발생 → 미적용.
+        //  절개면 품질은 스트로크 보간 + 법선 갱신 주기로 확보)
+        surgeryMesh.geometry.computeBoundsTree(); // BVH로 레이캐스트 가속
         this.surgeryMesh = surgeryMesh;
         this._addInnerLayer(surgeryMesh); // 절개 시 드러날 내부 조직층
       }
@@ -179,12 +189,22 @@ export class OperatingScene {
       this._lastAction[tool] = now;
       this.vfx.emit(h.target, tool);
       this._playSound(tool === 'CUT' ? 'laser_cut' : 'laser_suture');
-      // 실제 메시 변형: 절개=갈라짐, 봉합=아뭄
-      if (tool === 'CUT') this.deformer.cut(this.surgeryMesh, h.target);
-      else this.deformer.suture(this.surgeryMesh, h.target);
+      const apply = (p) => (tool === 'CUT' ? this.deformer.cut(this.surgeryMesh, p) : this.deformer.suture(this.surgeryMesh, p));
+      // 스트로크 보간: 빠르게 움직여도 절개선이 점점이 아니라 연속으로 이어지게
+      const last = this._lastPt[tool];
+      if (last) {
+        const d = last.distanceTo(h.target);
+        if (d > 0.1 && d < 2.0) {
+          const n = Math.min(6, Math.floor(d / 0.1));
+          for (let k = 1; k <= n; k++) apply(last.clone().lerp(h.target, k / (n + 1)));
+        }
+      }
+      apply(h.target);
+      this._lastPt[tool] = h.target.clone();
       // 진행률 + 봉합 바늘땀(overlay)은 Tissue가 담당(절개선 그림은 제거됨)
       return { tool, progress: this.tissue.surgery(h.target, tool, h.normal), point: h.target.clone() };
     }
+    if (!h.present || h.pinch <= 0.85) this._lastPt[tool] = null; // 스트로크 끊김
     return null;
   }
 
