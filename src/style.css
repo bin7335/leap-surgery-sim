@@ -36,7 +36,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 /* 레이아웃 */
 .hud-top { position: absolute; top: 0; left: 0; right: 0; z-index: 20;
   display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 16px; }
-.hud-status { position: absolute; top: 84px; left: 16px; z-index: 20; display: flex; gap: 10px; align-items: center; }
+.hud-status { position: absolute; top: 84px; left: 16px; z-index: 20;
+  display: flex; flex-direction: column; gap: 10px; align-items: flex-start; } /* 상태 배지 아래에 연습/도전 스택 */
+
+/* 절개/봉합 토글: 화면 상단 중앙에 크게(마우스 모드 전용) */
+.tool-switch-center { position: absolute; top: 86px; left: 50%; transform: translateX(-50%); z-index: 22; }
+.tool-switch-center button { font-size: 16px; font-weight: 800; padding: 11px 26px; }
 .hud-bottom { position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
   display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 16px; }
 
