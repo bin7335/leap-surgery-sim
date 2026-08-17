@@ -105,6 +105,13 @@ document.getElementById('btn-challenge').addEventListener('click', askChallenger
 document.getElementById('btn-name-start').addEventListener('click', startChallenge);
 document.getElementById('btn-name-cancel').addEventListener('click', showModeSelect);
 $nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') startChallenge(); });
+
+// ESC = 뒤로가기: 결과/이름입력/게임 중 어디서든 시작 화면으로
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const anyOpen = !$result.hidden || !$nameEntry.hidden || gameMode !== null;
+  if (anyOpen) showModeSelect();
+});
 // 화면 내 연습↔도전 즉시 전환 토글
 document.getElementById('game-switch').querySelectorAll('button').forEach((b) =>
   b.addEventListener('click', () => {

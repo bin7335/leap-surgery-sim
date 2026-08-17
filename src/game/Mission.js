@@ -3,7 +3,6 @@ import * as THREE from 'three';
 const SITES_PER_RUN = 2;    // 한 도전에서 수술할 부위 수(연속)
 const CUT_OPEN_HITS = 110;  // 1단계: 절개(개복)량
 const REMOVE_HITS = 90;     // 2단계: 종양 태우기량
-const SUTURE_HITS = 80;     // 3단계: 봉합량
 const NEAR = 0.8;           // 수술 부위 판정 반경(좁게 — 정조준 필요)
 const TUMOR_NEAR = 0.65;    // 종양 판정 반경
 const PENALTY_PER_STRAY = 0.03; // 빗나간 절개 1회당 시간 페널티(초) — 건강한 조직 손상
@@ -101,9 +100,10 @@ export class Mission {
         this.penalty += PENALTY_PER_STRAY; // 종양이 아닌 곳을 태움
       }
     } else if (this.state === 'SUTURE' && tool === 'SUTURE' && point.distanceTo(this.site) < NEAR + 0.3) {
-      this.sutureN++;
-      this.hud.setProgress('SUTURE', Math.min(100, Math.round((this.sutureN / SUTURE_HITS) * 100)));
-      if (this.sutureN >= SUTURE_HITS) this._siteComplete();
+      // 횟수가 아니라 "상처가 실제로 다 아물었는지"(치유율)로 완료 판정
+      const ratio = this.scene.deformer.healRatio(this.scene.surgeryMesh, this.site, NEAR + 0.4);
+      this.hud.setProgress('SUTURE', Math.round(ratio * 100));
+      if (ratio >= 0.92) this._siteComplete();
     }
   }
 

@@ -72,7 +72,7 @@ export class Deformer {
         // 흉터 높이는 절개가 깊었을수록 도드라짐(음수 depth = 바깥 볼록).
         const wasCut = scar[i] > maxDepth * 0.1;
         const target = wasCut ? -Math.min(scar[i] * 0.9, maxDepth * 0.6) : 0; // 뚜렷하게 융기
-        depth[i] = Math.max(target, depth[i] - fall * maxDepth * 0.20);
+        depth[i] = Math.max(target, depth[i] - fall * maxDepth * 0.07); // 천천히 아뭄
         if (wasCut) col.setXYZ(i, 0.95, 0.5, 0.55); // 켈로이드: 진한 장밋빛 흉터 라인
         else col.setXYZ(i, 1, 1, 1);                // 절개 안 됐던 주변은 원래 색 복구
       }
@@ -91,6 +91,31 @@ export class Deformer {
       }
     }
     this.lastMs = performance.now() - t0;
+  }
+
+  /**
+   * 부위의 치유율(0~1): 절개됐던 정점 중 표면까지 아문(depth<=0) 비율.
+   * "다 봉합해야 완료" 판정에 사용.
+   */
+  healRatio(mesh, worldPoint, worldRadius) {
+    const geo = mesh?.geometry;
+    if (!geo?.userData._defReady) return 1; // 상처 없음 = 아물 것 없음
+    const pos = geo.attributes.position;
+    const orig = geo.userData._orig, depth = geo.userData._depth, scar = geo.userData._scar;
+    const lp = mesh.worldToLocal(worldPoint.clone());
+    const scale = _v.setFromMatrixColumn(mesh.matrixWorld, 0).length() || 1;
+    const r2 = (worldRadius / scale) ** 2;
+    const scarMin = (0.14 / scale) * 0.15; // 유의미한 절개였는지 기준
+    let wounded = 0, closed = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const ix = i * 3;
+      const dx = orig[ix] - lp.x, dy = orig[ix + 1] - lp.y, dz = orig[ix + 2] - lp.z;
+      if (dx * dx + dy * dy + dz * dz > r2) continue;
+      if (scar[i] <= scarMin) continue;
+      wounded++;
+      if (depth[i] <= 0) closed++; // 표면(또는 켈로이드)까지 아묾
+    }
+    return wounded === 0 ? 1 : closed / wounded;
   }
 
   reset(mesh) {
