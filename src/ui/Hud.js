@@ -38,7 +38,7 @@ export class Hud {
   setStatus(state) {
     const label = {
       mock: '목(mock) 데이터', connecting: '연결 중…', live: '립모션 연결됨',
-      nodevice: '립모션 기기 없음', error: '연결 끊김',
+      webcam: '웹캠 연결됨', nodevice: '립모션 기기 없음', error: '연결 끊김',
     }[state] || state;
     this.$status.className = `panel status status--${state}`;
     this.$statusText.textContent = label;

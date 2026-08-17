@@ -67,6 +67,7 @@ export class Mission {
     this.cutN = 0;
     this.removeN = 0;
     this.sutureN = 0;
+    this._stuckN = 0;
     this.state = 'CUT_OPEN';
     this.hud.resetProgress();
     this._say(`${this._siteTag()} 1️⃣ 표시된 부위를 정확히 절개하세요! (빗나가면 페널티)`, 'cut');
@@ -102,8 +103,15 @@ export class Mission {
     } else if (this.state === 'SUTURE' && tool === 'SUTURE' && point.distanceTo(this.site) < NEAR + 0.3) {
       // 횟수가 아니라 "상처가 실제로 다 아물었는지"(치유율)로 완료 판정
       // 부피 80% + "깊은 구멍 없음" 둘 다 만족해야 완료(구멍 남았는데 완료되는 것 방지)
-      const { ratio, holeOpen } = this.scene.deformer.healRatio(this.scene.surgeryMesh, this.site, NEAR + 0.2);
-      const done = ratio >= 0.8 && !holeOpen;
+      const { ratio, holeOpen } = this.scene.deformer.healRatio(this.scene.surgeryMesh, this.site, NEAR);
+      let done = ratio >= 0.8 && !holeOpen;
+      // 안전밸브: 충분히 아물었는데(85%+) 안 보이는 흠집 때문에 오래 막혀 있으면 통과
+      if (!done && ratio >= 0.85) {
+        this._stuckN = (this._stuckN || 0) + 1;
+        if (this._stuckN > 150) done = true; // 활발한 봉합 약 2.5초 지속 시
+      } else {
+        this._stuckN = 0;
+      }
       const pct = Math.min(done ? 100 : 99, Math.round((ratio / 0.8) * 100)); // 구멍 남으면 99%에서 멈춤
       this.hud.setProgress('SUTURE', pct);
       if (done) this._siteComplete();

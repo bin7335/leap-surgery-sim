@@ -119,11 +119,11 @@ export class Deformer {
       totalScar += scar[i];
       const open = Math.max(0, depth[i]);
       totalOpen += open;
-      if (open > maxDepthRef * 0.5) deepCount++;
+      if (open > maxDepthRef * 0.7) deepCount++;
     }
     return {
       ratio: totalScar === 0 ? 1 : 1 - totalOpen / totalScar,
-      holeOpen: deepCount >= 3, // 정점 1~2개짜리 미세 잔여물은 무시(후한 판정)
+      holeOpen: deepCount >= 5, // 깊은 정점이 여럿 모여있을 때만 구멍(후한 판정)
     };
   }
 

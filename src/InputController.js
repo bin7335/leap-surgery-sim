@@ -25,9 +25,10 @@ function emptyHand() {
 }
 
 export class InputController {
-  constructor(scene, leapSource) {
+  constructor(scene, leapSource, webcamSource = null) {
     this.scene = scene;
     this.leap = leapSource;
+    this.webcam = webcamSource;
     this.controlMode = 'MOUSE';
     this.mountMode = 'desktop';
     this.mouseTool = 'CUT'; // 마우스 모드에서 선택된 도구(상단 토글로 전환)
@@ -40,7 +41,8 @@ export class InputController {
     this._mouseButtons = { cut: false, suture: false };
     this._demoAngle = 0;
 
-    this._bindLeap();
+    this._bindHandSource(this.leap, 'LEAP');
+    if (this.webcam) this._bindHandSource(this.webcam, 'WEBCAM');
     this._bindMouse();
   }
 
@@ -59,9 +61,10 @@ export class InputController {
     return this._ndc;
   }
 
-  _bindLeap() {
-    this.leap.on('frame', (frame) => {
-      if (this.controlMode !== 'LEAP') return;
+  /** 손 트래킹 소스(립모션/웹캠) 프레임을 해당 모드일 때만 반영 */
+  _bindHandSource(source, mode) {
+    source.on('frame', (frame) => {
+      if (this.controlMode !== mode) return;
       this.hands.right.present = false;
       this.hands.left.present = false;
       for (const h of frame.hands) {

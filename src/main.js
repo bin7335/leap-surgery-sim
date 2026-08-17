@@ -3,6 +3,7 @@ import { OperatingScene } from './scene/OperatingScene.js';
 import { InputController } from './InputController.js';
 import { WebSocketLeapSource } from './leap/WebSocketLeapSource.js';
 import { MockLeapSource } from './leap/MockLeapSource.js';
+import { WebcamSource } from './leap/WebcamSource.js';
 import { Hud } from './ui/Hud.js';
 import { Mission } from './game/Mission.js';
 
@@ -11,7 +12,8 @@ const useMock = new URLSearchParams(location.search).has('mock');
 const leap = useMock ? new MockLeapSource() : new WebSocketLeapSource();
 
 const scene = new OperatingScene(document.getElementById('scene'));
-const input = new InputController(scene, leap);
+const webcam = new WebcamSource(); // 웹캠 모드 첫 선택 시 connect(권한 요청)
+const input = new InputController(scene, leap, webcam);
 
 // 무인 어트랙트: 립모션 모드에서 손이 30초간 없으면 자동 시연으로 전환, 손이 오면 복귀
 const ATTRACT_AFTER_MS = 30000;
@@ -24,6 +26,8 @@ const hud = new Hud({
     lastHandSeen = performance.now(); // 수동 선택은 어트랙트 해제+타이머 리셋
     input.setControlMode(m);
     document.getElementById('tool-switch').hidden = m !== 'MOUSE'; // 도구 토글은 마우스 모드 전용
+    if (m === 'WEBCAM') webcam.connect(); // 첫 선택 시 카메라 권한 요청+모델 로드
+    else if (m === 'LEAP') hud.setStatus(lastLeapStatus);
   },
   onReset: () => { scene.reset(); hud.resetProgress(); },
 });
@@ -37,8 +41,12 @@ document.getElementById('tool-switch').querySelectorAll('button').forEach((b) =>
   })
 );
 
-leap.on('status', (s) => hud.setStatus(s));
+// 연결 배지: 활성 입력 소스의 상태만 표시
+let lastLeapStatus = 'connecting';
+leap.on('status', (s) => { lastLeapStatus = s; if (input.controlMode !== 'WEBCAM') hud.setStatus(s); });
+webcam.on('status', (s) => { if (input.controlMode === 'WEBCAM') hud.setStatus(s === 'live' ? 'webcam' : s); });
 leap.on('frame', (f) => { if (f.hands.length > 0) lastHandSeen = performance.now(); });
+webcam.on('frame', (f) => { if (f.hands.length > 0) lastHandSeen = performance.now(); });
 leap.connect();
 
 // 게임 모드: 시작 오버레이에서 연습/기록도전 선택

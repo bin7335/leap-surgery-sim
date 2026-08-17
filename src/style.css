@@ -73,6 +73,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .status { padding: 8px 14px; display: inline-flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; border-radius: 999px; }
 .status__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--mock); box-shadow: 0 0 10px var(--mock); }
 .status--live { color: var(--live); } .status--live .status__dot { background: var(--live); box-shadow: 0 0 10px var(--live); }
+.status--webcam { color: var(--live); } .status--webcam .status__dot { background: var(--live); box-shadow: 0 0 10px var(--live); }
 .status--connecting .status__dot { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
 .status--nodevice { color: var(--mock); }
 .status--nodevice .status__dot { background: var(--mock); box-shadow: 0 0 10px var(--mock); }
