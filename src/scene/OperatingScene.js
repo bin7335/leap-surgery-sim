@@ -92,6 +92,16 @@ export class OperatingScene {
     return this._raycastSurface();
   }
 
+  /** 장기 메시에만 맞는 레이캐스트(바닥 폴백 없음) — 종양 배치 등 정확한 표면 지정용 */
+  raycastOrganFromNDC(ndc) {
+    this._raycaster.setFromCamera(ndc, this.camera);
+    const hits = this._raycaster.intersectObject(this.surgeryMesh);
+    if (!hits.length) return null;
+    const n = (hits[0].face?.normal ?? new THREE.Vector3(0, 1, 0)).clone()
+      .transformDirection(this.surgeryMesh.matrixWorld); // 로컬 법선 → 월드
+    return { point: hits[0].point, normal: n };
+  }
+
   resolveFromGround(x, z) {
     this._raycaster.set(new THREE.Vector3(x, 5, z), new THREE.Vector3(0, -1, 0));
     return this._raycastSurface() || { point: new THREE.Vector3(x, 0.5, z), normal: new THREE.Vector3(0, 1, 0) };

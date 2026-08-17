@@ -60,7 +60,8 @@ export class Deformer {
       const fall = t * t * (3 - 2 * t);
 
       if (mode === 'CUT') depth[i] = Math.min(maxDepth, depth[i] + fall * maxDepth * 0.06); // 약하게 진행
-      else depth[i] = Math.max(0, depth[i] - fall * maxDepth * 0.20);
+      // 봉합: 아물면서 0을 지나 살짝 볼록(-0.03)까지 — 켈로이드처럼 미세하게 도드라진 흉터
+      else depth[i] = Math.max(-0.03, depth[i] - fall * maxDepth * 0.20);
 
       const dep = depth[i];
       pos.setXYZ(i, orig[ix] - nrm[ix] * dep, orig[ix + 1] - nrm[ix + 1] * dep, orig[ix + 2] - nrm[ix + 2] * dep);
@@ -68,7 +69,7 @@ export class Deformer {
         const c = 1 - Math.min(1, dep / maxDepth) * 0.62;
         col.setXYZ(i, c, c * 0.45, c * 0.42); // 파일수록 검붉게
       } else {
-        col.setXYZ(i, 0.85, 0.55, 0.55); // 봉합 부위 밝게(회복)
+        col.setXYZ(i, 0.96, 0.84, 0.85); // 켈로이드 흉터: 옅게만 남는 색(조잡한 자국 대신)
       }
       changed = true;
     }

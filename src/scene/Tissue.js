@@ -134,34 +134,13 @@ export class Tissue {
     this.overlay.add(this._incision);
   }
 
-  _suture(pos, normal) {
-    if (!this._lastStitch || pos.distanceTo(this._lastStitch) > 0.18) {
+  _suture(pos) {
+    // 시각 효과는 Deformer의 켈로이드 흉터(옅은 색 + 살짝 볼록)가 담당. 여기선 진행률만.
+    if (!this._lastStitch || pos.distanceTo(this._lastStitch) > 0.15) {
       this._lastStitch = pos.clone();
       this.suturePathLen++;
-      this.overlay.add(this._makeStitch(pos, normal));
-      // 무한 누적 방지: 오래된 바늘땀부터 제거(드로우콜 폭증 → FPS 저하 방지)
-      while (this.overlay.children.length > 240) {
-        const old = this.overlay.children[0];
-        old.traverse((o) => o.geometry?.dispose?.());
-        this.overlay.remove(old);
-      }
     }
     return Math.min(100, Math.round((this.suturePathLen / 20) * 100));
-  }
-
-  /** 절개선을 가로지르는 X자 바늘땀 */
-  _makeStitch(pos, normal) {
-    const g = new THREE.Group();
-    const threadMat = new THREE.MeshStandardMaterial({ color: 0x2c3440, roughness: 0.6, metalness: 0.2 });
-    for (const rot of [Math.PI / 4, -Math.PI / 4]) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.2), threadMat);
-      bar.rotation.y = rot;
-      g.add(bar);
-    }
-    const n = normal || this._surfaceNormal(pos);
-    g.position.copy(pos).addScaledVector(n, 0.05);
-    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
-    return g;
   }
 
   /** 표면 최근접 정점 법선(성긴 샘플로 비용 절감) */
