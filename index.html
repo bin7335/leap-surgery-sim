@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>립모션 로봇수술 시뮬레이션 체험</title>
-    <script type="module" crossorigin src="/leap-surgery-sim/assets/index-LQ-iLelL.js"></script>
-    <link rel="stylesheet" crossorigin href="/leap-surgery-sim/assets/index-Bfda5sCv.css">
+    <script type="module" crossorigin src="/leap-surgery-sim/assets/index-CcORsmsv.js"></script>
+    <link rel="stylesheet" crossorigin href="/leap-surgery-sim/assets/index-D0FI-6xI.css">
   </head>
   <body>
     <div id="app">
@@ -72,6 +72,10 @@
         <div class="mode-card">
           <h1>🎉 수술 성공!</h1>
           <p id="result-text">기록 --초</p>
+          <div class="result-ranking">
+            <div class="result-ranking__title">🏆 현재 순위</div>
+            <ol id="result-ranking"></ol>
+          </div>
           <div class="mode-buttons">
             <button id="btn-retry">🔁 다시 도전</button>
             <button id="btn-home" class="btn-ghost">🏠 처음으로</button>
@@ -102,6 +106,10 @@
         <div class="panel mode-switch" id="game-switch">
           <button data-game="practice">🩹 연습</button>
           <button data-game="challenge">🏆 도전</button>
+        </div>
+        <div class="panel mode-switch" id="tool-switch">
+          <button data-tool="CUT" class="is-active">🔴 절개</button>
+          <button data-tool="SUTURE">🔵 봉합</button>
         </div>
       </div>
 
