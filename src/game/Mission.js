@@ -103,15 +103,16 @@ export class Mission {
       // 횟수가 아니라 "상처가 실제로 다 아물었는지"(치유율)로 완료 판정
       const ratio = this.scene.deformer.healRatio(this.scene.surgeryMesh, this.site, NEAR + 0.4);
       this.hud.setProgress('SUTURE', Math.round(ratio * 100));
-      if (ratio >= 0.92) this._siteComplete();
+      if (ratio >= 0.9) this._siteComplete();
     }
   }
 
   _siteComplete() {
     if (this.siteIdx < SITES_PER_RUN) {
       this.siteIdx++;
+      this.state = 'TRANSITION'; // 중복 발동 방지(계속 문질러도 다시 판정 안 됨)
       this._say(`✨ 부위 ${this.siteIdx - 1} 완료! 다음 부위로 이동하세요!`, 'done');
-      setTimeout(() => { if (this.state === 'SUTURE') this._newSite(); }, 1200);
+      setTimeout(() => { if (this.state === 'TRANSITION') this._newSite(); }, 1200);
     } else {
       this._finish();
     }

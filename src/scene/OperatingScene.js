@@ -190,13 +190,15 @@ export class OperatingScene {
       this.vfx.emit(h.target, tool);
       this._playSound(tool === 'CUT' ? 'laser_cut' : 'laser_suture');
       const apply = (p) => (tool === 'CUT' ? this.deformer.cut(this.surgeryMesh, p) : this.deformer.suture(this.surgeryMesh, p));
-      // 스트로크 보간: 빠르게 움직여도 절개선이 점점이 아니라 연속으로 이어지게
-      const last = this._lastPt[tool];
-      if (last) {
-        const d = last.distanceTo(h.target);
-        if (d > 0.1 && d < 2.0) {
-          const n = Math.min(6, Math.floor(d / 0.1));
-          for (let k = 1; k <= n; k++) apply(last.clone().lerp(h.target, k / (n + 1)));
+      // 스트로크 보간은 절개에만: 봉합까지 보간하면 한 프레임에 여러 번 아물어 너무 빨라진다
+      if (tool === 'CUT') {
+        const last = this._lastPt[tool];
+        if (last) {
+          const d = last.distanceTo(h.target);
+          if (d > 0.1 && d < 2.0) {
+            const n = Math.min(6, Math.floor(d / 0.1));
+            for (let k = 1; k <= n; k++) apply(last.clone().lerp(h.target, k / (n + 1)));
+          }
         }
       }
       apply(h.target);

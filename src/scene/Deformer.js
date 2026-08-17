@@ -72,7 +72,7 @@ export class Deformer {
         // 흉터 높이는 절개가 깊었을수록 도드라짐(음수 depth = 바깥 볼록).
         const wasCut = scar[i] > maxDepth * 0.1;
         const target = wasCut ? -Math.min(scar[i] * 0.9, maxDepth * 0.6) : 0; // 뚜렷하게 융기
-        depth[i] = Math.max(target, depth[i] - fall * maxDepth * 0.07); // 천천히 아뭄
+        depth[i] = Math.max(target, depth[i] - fall * maxDepth * 0.03); // 천천히 아뭄
         if (wasCut) col.setXYZ(i, 0.95, 0.5, 0.55); // 켈로이드: 진한 장밋빛 흉터 라인
         else col.setXYZ(i, 1, 1, 1);                // 절개 안 됐던 주변은 원래 색 복구
       }
@@ -106,16 +106,17 @@ export class Deformer {
     const scale = _v.setFromMatrixColumn(mesh.matrixWorld, 0).length() || 1;
     const r2 = (worldRadius / scale) ** 2;
     const scarMin = (0.14 / scale) * 0.15; // 유의미한 절개였는지 기준
-    let wounded = 0, closed = 0;
+    // 연속 비율: 남은 파임(depth>0) 총량 / 상처 총량 → 문지르는 만큼 꾸준히 차오름
+    let totalScar = 0, totalOpen = 0;
     for (let i = 0; i < pos.count; i++) {
       const ix = i * 3;
       const dx = orig[ix] - lp.x, dy = orig[ix + 1] - lp.y, dz = orig[ix + 2] - lp.z;
       if (dx * dx + dy * dy + dz * dz > r2) continue;
       if (scar[i] <= scarMin) continue;
-      wounded++;
-      if (depth[i] <= 0) closed++; // 표면(또는 켈로이드)까지 아묾
+      totalScar += scar[i];
+      totalOpen += Math.max(0, depth[i]);
     }
-    return wounded === 0 ? 1 : closed / wounded;
+    return totalScar === 0 ? 1 : 1 - totalOpen / totalScar;
   }
 
   reset(mesh) {

@@ -19,7 +19,7 @@ let lastHandSeen = performance.now();
 let autoAttract = false;
 
 const hud = new Hud({
-  onControl: (m) => { autoAttract = false; input.setControlMode(m); }, // 수동 선택은 어트랙트 해제
+  onControl: (m) => { autoAttract = false; lastHandSeen = performance.now(); input.setControlMode(m); }, // 수동 선택은 어트랙트 해제+타이머 리셋
   onReset: () => { scene.reset(); hud.resetProgress(); },
 });
 
@@ -42,6 +42,7 @@ function syncGameSwitch() {
 }
 function startPractice() {
   gameMode = 'practice';
+  lastHandSeen = performance.now(); // 어트랙트 타이머 리셋(시작 직후 오발동 방지)
   $modeSelect.hidden = true;
   $nameEntry.hidden = true;
   document.getElementById('result').hidden = true;
@@ -62,6 +63,7 @@ function askChallengerName() {
 function startChallenge() {
   const name = $nameInput.value.trim() || '무명의 의사';
   gameMode = 'challenge';
+  lastHandSeen = performance.now(); // 어트랙트 타이머 리셋(시작 직후 오발동 방지)
   $nameEntry.hidden = true;
   $records.hidden = false;
   scene.reset();
