@@ -34,6 +34,10 @@ let gameMode = null; // 'practice' | 'challenge'
 const $modeSelect = document.getElementById('mode-select');
 const $records = document.getElementById('records');
 
+function syncGameSwitch() {
+  document.getElementById('game-switch').querySelectorAll('button')
+    .forEach((b) => b.classList.toggle('is-active', b.dataset.game === gameMode));
+}
 function chooseMode(m) {
   gameMode = m;
   $modeSelect.hidden = true;
@@ -41,6 +45,7 @@ function chooseMode(m) {
   hud.resetProgress();
   if (m === 'challenge') { $records.hidden = false; mission.start(); }
   else { $records.hidden = true; mission.stop(); }
+  syncGameSwitch();
 }
 function showModeSelect() {
   gameMode = null;
@@ -49,10 +54,15 @@ function showModeSelect() {
   $modeSelect.hidden = false;
   scene.reset();
   hud.resetProgress();
+  syncGameSwitch();
 }
 document.getElementById('btn-practice').addEventListener('click', () => chooseMode('practice'));
 document.getElementById('btn-challenge').addEventListener('click', () => chooseMode('challenge'));
 document.getElementById('btn-mode-select').addEventListener('click', showModeSelect);
+// 화면 내 연습↔도전 즉시 전환 토글(오버레이 없이)
+document.getElementById('game-switch').querySelectorAll('button').forEach((b) =>
+  b.addEventListener('click', () => { if (gameMode !== b.dataset.game) chooseMode(b.dataset.game); })
+);
 
 window.addEventListener('resize', () => scene.resize());
 
