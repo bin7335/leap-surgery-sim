@@ -34,34 +34,67 @@ let gameMode = null; // 'practice' | 'challenge'
 const $modeSelect = document.getElementById('mode-select');
 const $records = document.getElementById('records');
 
+const $nameEntry = document.getElementById('name-entry');
+const $nameInput = document.getElementById('name-input');
+
 function syncGameSwitch() {
   document.getElementById('game-switch').querySelectorAll('button')
     .forEach((b) => b.classList.toggle('is-active', b.dataset.game === gameMode));
 }
-function chooseMode(m) {
-  gameMode = m;
+function startPractice() {
+  gameMode = 'practice';
   $modeSelect.hidden = true;
+  $nameEntry.hidden = true;
+  $records.hidden = true;
+  mission.stop();
   scene.reset();
   hud.resetProgress();
-  if (m === 'challenge') { $records.hidden = false; mission.start(); }
-  else { $records.hidden = true; mission.stop(); }
+  syncGameSwitch();
+}
+/** 도전 진입: 이름 입력 창부터 */
+function askChallengerName() {
+  $modeSelect.hidden = true;
+  $nameEntry.hidden = false;
+  $nameInput.value = '';
+  setTimeout(() => $nameInput.focus(), 50);
+}
+/** 이름 확정 → 립모션 모드로 자동 전환 + 미션 시작 */
+function startChallenge() {
+  const name = $nameInput.value.trim() || '무명의 의사';
+  gameMode = 'challenge';
+  $nameEntry.hidden = true;
+  $records.hidden = false;
+  scene.reset();
+  hud.resetProgress();
+  mission.playerName = name;
+  mission.start();
+  input.setControlMode('LEAP');
+  hud.setControlActive('LEAP');
   syncGameSwitch();
 }
 function showModeSelect() {
   gameMode = null;
   mission.stop();
   $records.hidden = true;
+  $nameEntry.hidden = true;
   $modeSelect.hidden = false;
   scene.reset();
   hud.resetProgress();
   syncGameSwitch();
 }
-document.getElementById('btn-practice').addEventListener('click', () => chooseMode('practice'));
-document.getElementById('btn-challenge').addEventListener('click', () => chooseMode('challenge'));
+document.getElementById('btn-practice').addEventListener('click', startPractice);
+document.getElementById('btn-challenge').addEventListener('click', askChallengerName);
+document.getElementById('btn-name-start').addEventListener('click', startChallenge);
+document.getElementById('btn-name-cancel').addEventListener('click', showModeSelect);
+$nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') startChallenge(); });
 document.getElementById('btn-mode-select').addEventListener('click', showModeSelect);
-// 화면 내 연습↔도전 즉시 전환 토글(오버레이 없이)
+// 화면 내 연습↔도전 즉시 전환 토글
 document.getElementById('game-switch').querySelectorAll('button').forEach((b) =>
-  b.addEventListener('click', () => { if (gameMode !== b.dataset.game) chooseMode(b.dataset.game); })
+  b.addEventListener('click', () => {
+    if (gameMode === b.dataset.game) return;
+    if (b.dataset.game === 'practice') startPractice();
+    else askChallengerName();
+  })
 );
 
 window.addEventListener('resize', () => scene.resize());

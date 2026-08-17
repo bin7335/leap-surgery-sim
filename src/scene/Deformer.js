@@ -32,7 +32,7 @@ export class Deformer {
     geo.userData._defReady = true;
   }
 
-  cut(mesh, worldPoint, worldRadius = 0.15) { this._apply(mesh, worldPoint, worldRadius, 'CUT'); }     // 얇은 절개
+  cut(mesh, worldPoint, worldRadius = 0.18) { this._apply(mesh, worldPoint, worldRadius, 'CUT'); }     // 얇은 절개
   suture(mesh, worldPoint, worldRadius = 0.3) { this._apply(mesh, worldPoint, worldRadius, 'SUTURE'); }
 
   _apply(mesh, worldPoint, worldRadius, mode) {
@@ -48,7 +48,8 @@ export class Deformer {
     const scale = _v.setFromMatrixColumn(mesh.matrixWorld, 0).length() || 1;
     const r = worldRadius / scale;
     const r2 = r * r;
-    const maxDepth = r * 1.1;
+    // 외벽 두께(내부층 오프셋 0.08)보다 깊게 파여야 내부 조직이 드러난다
+    const maxDepth = Math.max(r * 1.3, 0.14 / scale);
     let changed = false;
 
     for (let i = 0; i < pos.count; i++) {

@@ -19,6 +19,7 @@ export class Mission {
     this.$timer = document.getElementById('mission-timer');
     this.$list = document.getElementById('records-list');
     this.state = 'IDLE'; // IDLE | CUT_OPEN | REMOVE | SUTURE | DONE
+    this.playerName = '무명의 의사';
     this.tumor = null;
     this.marker = null;
     this.site = new THREE.Vector3();
@@ -175,18 +176,25 @@ export class Mission {
   }
 
   _saveRecord(sec) {
-    const arr = JSON.parse(localStorage.getItem(RECORDS_KEY) || '[]');
-    arr.push(Math.round(sec * 10) / 10);
-    arr.sort((a, b) => a - b);
+    const rec = { n: this.playerName, s: Math.round(sec * 10) / 10 };
+    const arr = this._loadRecords();
+    arr.push(rec);
+    arr.sort((a, b) => a.s - b.s);
     localStorage.setItem(RECORDS_KEY, JSON.stringify(arr.slice(0, 5)));
-    this._renderRecords(Math.round(sec * 10) / 10);
+    this._renderRecords(rec);
+  }
+
+  _loadRecords() {
+    const raw = JSON.parse(localStorage.getItem(RECORDS_KEY) || '[]');
+    // 구버전(숫자만 저장) 호환
+    return raw.map((r) => (typeof r === 'number' ? { n: '---', s: r } : r));
   }
 
   _renderRecords(latest) {
-    const arr = JSON.parse(localStorage.getItem(RECORDS_KEY) || '[]');
+    const arr = this._loadRecords();
     const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
     this.$list.innerHTML = arr
-      .map((s, i) => `<li${s === latest ? ' class="is-new"' : ''}>${medals[i]} ${s.toFixed(1)}초</li>`)
+      .map((r, i) => `<li${latest && r.n === latest.n && r.s === latest.s ? ' class="is-new"' : ''}>${medals[i]} ${r.n} ${r.s.toFixed(1)}초</li>`)
       .join('');
   }
 }

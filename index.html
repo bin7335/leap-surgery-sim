@@ -51,6 +51,19 @@
         </div>
       </div>
 
+      <!-- 도전자 이름 입력 (기록 도전 진입 시) -->
+      <div id="name-entry" class="mode-overlay" hidden>
+        <div class="mode-card">
+          <h1>🏆 기록 도전</h1>
+          <p>도전자 이름을 입력하면 립모션 조작으로 바로 시작됩니다</p>
+          <input id="name-input" type="text" maxlength="10" placeholder="이름 또는 별명" autocomplete="off" />
+          <div class="mode-buttons">
+            <button id="btn-name-cancel" class="btn-ghost">← 뒤로</button>
+            <button id="btn-name-start">🚀 도전 시작</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 도전 기록 (기록 도전 모드에서 표시) -->
       <div id="records" class="panel records" hidden>
         <div class="records__head">🏆 도전 기록 <span id="mission-timer">0.0s</span></div>

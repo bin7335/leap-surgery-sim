@@ -109,19 +109,27 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .mode-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
   background: rgba(6, 12, 20, 0.55); backdrop-filter: blur(10px); }
 .mode-overlay[hidden] { display: none; }
-.mode-card { background: var(--panel); border: 1px solid var(--border); border-radius: 24px;
-  padding: 40px 48px; text-align: center; box-shadow: 0 8px 60px rgba(0,0,0,0.8); }
-.mode-card h1 { margin: 0 0 8px; font-size: 28px; color: #fff; }
-.mode-card p { margin: 0 0 28px; color: var(--muted); font-size: 15px; }
-.mode-buttons { display: flex; gap: 18px; }
-.mode-buttons button { flex: 1; display: flex; flex-direction: column; gap: 8px; align-items: center;
-  padding: 26px 34px; font-size: 19px; font-weight: 800; color: #fff; cursor: pointer;
-  background: rgba(56,189,248,0.1); border: 1.5px solid rgba(56,189,248,0.45); border-radius: 18px;
+.mode-card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
+  padding: 24px 28px; text-align: center; box-shadow: 0 8px 60px rgba(0,0,0,0.8); max-width: 400px; }
+.mode-card h1 { margin: 0 0 6px; font-size: 20px; color: #fff; }
+.mode-card p { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+.mode-buttons { display: flex; gap: 12px; }
+.mode-buttons button { flex: 1; display: flex; flex-direction: column; gap: 5px; align-items: center;
+  padding: 14px 18px; font-size: 15px; font-weight: 800; color: #fff; cursor: pointer;
+  background: rgba(56,189,248,0.1); border: 1.5px solid rgba(56,189,248,0.45); border-radius: 12px;
   transition: transform .12s, background .12s; }
-.mode-buttons button:hover { transform: translateY(-3px); background: rgba(56,189,248,0.22); }
-.mode-buttons button small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.mode-buttons button:hover { transform: translateY(-2px); background: rgba(56,189,248,0.22); }
+.mode-buttons button small { font-size: 11px; font-weight: 500; color: var(--muted); }
 #btn-challenge { background: rgba(255,209,102,0.08); border-color: rgba(255,209,102,0.45); }
 #btn-challenge:hover { background: rgba(255,209,102,0.18); }
+
+/* 이름 입력 */
+#name-input { width: 100%; box-sizing: border-box; margin-bottom: 14px; padding: 10px 14px;
+  font-size: 15px; text-align: center; color: #fff; background: rgba(0,0,0,0.4);
+  border: 1.5px solid rgba(56,189,248,0.45); border-radius: 10px; outline: none; }
+#name-input:focus { border-color: var(--accent); box-shadow: 0 0 12px rgba(56,189,248,0.3); }
+#btn-name-start { background: rgba(255,209,102,0.12); border-color: rgba(255,209,102,0.5); }
+.btn-ghost { background: transparent !important; border-color: rgba(148,163,184,0.35) !important; color: var(--muted) !important; }
 
 /* 도전 기록 패널 */
 .records { position: absolute; top: 124px; right: 16px; z-index: 20; padding: 14px 18px; min-width: 172px; }

@@ -80,11 +80,41 @@ export class OperatingScene {
   _tryLoadModel() {
     ModelField.load().then(({ root, surgeryMesh }) => {
       this.scene.add(root);
-      if (surgeryMesh) this.surgeryMesh = surgeryMesh;
+      if (surgeryMesh) {
+        this.surgeryMesh = surgeryMesh;
+        this._addInnerLayer(surgeryMesh); // 절개 시 드러날 내부 조직층
+      }
       this.tissue.setProceduralVisible(false); // 절차적 장기 전체 숨김
       this._fieldBounds = null; // 모델 기준으로 영역 재계산
       console.info('[scene] 사실적 모델 로드됨');
     }).catch(() => { /* 파일 없음 → 절차적 Tissue 유지 */ });
+  }
+
+  /**
+   * 내부 조직층: 외벽 메시를 법선 방향 안쪽으로 수축 복제한 붉은 층.
+   * 절개 깊이가 외벽 두께(월드 ~0.08)를 넘으면 이 층이 노출되어 "속이 열린" 것처럼 보인다.
+   */
+  _addInnerLayer(mesh) {
+    const geo = mesh.geometry.clone();
+    geo.deleteAttribute('color'); // 외벽의 흉터 색과 무관하게
+    const pos = geo.attributes.position;
+    const nrm = geo.attributes.normal;
+    const worldScale = new THREE.Vector3().setFromMatrixColumn(mesh.matrixWorld, 0).length() || 1;
+    const dLocal = 0.08 / worldScale; // 월드 기준 0.08 안쪽
+    for (let i = 0; i < pos.count; i++) {
+      pos.setXYZ(i,
+        pos.getX(i) - nrm.getX(i) * dLocal,
+        pos.getY(i) - nrm.getY(i) * dLocal,
+        pos.getZ(i) - nrm.getZ(i) * dLocal);
+    }
+    const inner = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+      color: 0x9c3030, roughness: 0.65, // 붉은 근육/점막 조직 느낌
+    }));
+    inner.position.copy(mesh.position);
+    inner.quaternion.copy(mesh.quaternion);
+    inner.scale.copy(mesh.scale);
+    inner.receiveShadow = true;
+    mesh.parent.add(inner);
   }
 
   resolveFromNDC(ndc) {
