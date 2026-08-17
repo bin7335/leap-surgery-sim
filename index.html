@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>립모션 로봇수술 시뮬레이션 체험</title>
+    <script type="module" crossorigin src="/leap-surgery-sim/assets/index-CCTdHGoh.js"></script>
+    <link rel="stylesheet" crossorigin href="/leap-surgery-sim/assets/index-BBUuy4oD.css">
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <!-- 내시경 렌즈 오버레이 -->
+      <div class="scope-overlay"></div>
+      <div class="lens-fx"></div>
+
+      <!-- 상단 HUD -->
+      <header class="hud-top">
+        <div class="panel title">
+          <div class="title__name">SURGICAL ARM <span class="tag">DUAL LASER</span></div>
+          <div class="title__sub">립모션으로 조작하는 로봇수술 (절개 / 봉합)</div>
+        </div>
+
+        <div id="mission" class="panel mission mission--dual">
+          <span class="mission__hand mission__hand--right">오른손 집게 → 절개</span>
+          <span class="mission__plus">+</span>
+          <span class="mission__hand mission__hand--left">왼손 집게 → 봉합</span>
+        </div>
+
+        <div class="panel telemetry">
+          <div class="telemetry__item">
+            <div class="telemetry__label">INCISION</div>
+            <div id="progress-cut" class="telemetry__val val--red">0%</div>
+          </div>
+          <div class="telemetry__sep"></div>
+          <div class="telemetry__item">
+            <div class="telemetry__label">SUTURE</div>
+            <div id="progress-suture" class="telemetry__val val--blue">0%</div>
+          </div>
+        </div>
+      </header>
+
+      <!-- 시작: 모드 선택 오버레이 -->
+      <div id="mode-select" class="mode-overlay">
+        <div class="mode-card">
+          <h1>🩺 립모션 로봇수술 체험</h1>
+          <p>손 집게(핀치)로 레이저를 조작해 수술해보세요</p>
+          <div class="mode-buttons">
+            <button id="btn-practice">🩹 연습 모드<small>자유롭게 절개·봉합 연습</small></button>
+            <button id="btn-challenge">🏆 기록 도전<small>종양 제거 타임어택</small></button>
+          </div>
+          <p class="credit">교육용 비영리 데모 · 3D 장기 모델: Sketchfab 크리에이터 제공</p>
+        </div>
+      </div>
+
+      <!-- 도전자 이름 입력 (기록 도전 진입 시) -->
+      <div id="name-entry" class="mode-overlay" hidden>
+        <div class="mode-card">
+          <h1>🏆 기록 도전</h1>
+          <p>도전자 이름을 입력하면 립모션 조작으로 바로 시작됩니다</p>
+          <input id="name-input" type="text" maxlength="10" placeholder="이름 또는 별명" autocomplete="off" />
+          <div class="mode-buttons">
+            <button id="btn-name-cancel" class="btn-ghost">← 뒤로</button>
+            <button id="btn-name-start">🚀 도전 시작</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 도전 기록 (기록 도전 모드에서 표시) -->
+      <div id="records" class="panel records" hidden>
+        <div class="records__head">🏆 도전 기록 <span id="mission-timer">0.0s</span></div>
+        <ol id="records-list"></ol>
+      </div>
+
+      <!-- 성능 계측 (?perf 로 표시) -->
+      <div id="perf" class="panel perf" hidden>
+        <span id="perf-fps">-- FPS</span>
+        <span id="perf-deform">deform --ms</span>
+        <span id="perf-verts">-- verts</span>
+        <span id="perf-calls">-- calls</span>
+      </div>
+
+      <!-- 상태 배지 (연결/마운트) -->
+      <div class="hud-status">
+        <div id="status" class="panel status status--mock">
+          <span class="status__dot"></span>
+          <span id="status-text" class="status__text">목(mock) 데이터</span>
+        </div>
+        <div class="panel mode-switch" id="mount-switch">
+          <button data-mount="desktop" class="is-active">데스크톱</button>
+          <button data-mount="hmd">헤드마운트</button>
+        </div>
+        <div class="panel mode-switch" id="game-switch">
+          <button data-game="practice">🩹 연습</button>
+          <button data-game="challenge">🏆 도전</button>
+        </div>
+      </div>
+
+      <!-- 하단 HUD -->
+      <footer class="hud-bottom">
+        <div class="panel arm-telemetry">
+          <div class="arm-telemetry__title">ARM TELEMETRY</div>
+          <div class="arm-telemetry__grid">
+            <div class="cell"><div class="cell__label">LASER PWR</div><div id="pinch-val" class="cell__val val--green">0 W</div></div>
+            <div class="cell"><div class="cell__label">DEPTH</div><div id="pos-depth" class="cell__val">0.0 mm</div></div>
+          </div>
+        </div>
+
+        <div class="center-controls">
+          <div class="panel control-switch" id="control-switch">
+            <button data-control="LEAP">립모션</button>
+            <button data-control="MOUSE" class="is-active">마우스</button>
+            <button data-control="DEMO">자동 시연</button>
+          </div>
+        </div>
+
+        <div class="footer-right">
+          <button id="btn-mode-select" class="panel reset-btn">🎮 모드 선택</button>
+          <button id="reset" class="panel reset-btn">↻ 새 수술 준비</button>
+        </div>
+      </footer>
+    </div>
+
+  </body>
+</html>

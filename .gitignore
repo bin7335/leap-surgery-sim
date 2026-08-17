@@ -1,0 +1,18 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물
+dist/
+
+# Leap SDK (네이티브 SDK — 저장소에 넣지 않음, 각자 설치)
+LeapSDK/
+
+# 대용량 3D 모델 (라이선스/용량 문제로 저장소 제외 — 각자 public/models/에 배치)
+public/models/*.glb
+public/models/*.gltf
+public/models/*.bin
+public/models/**/textures/
+
+# 로컬 로그/캐시
+.vite-dev.log
+.npm-cache/
