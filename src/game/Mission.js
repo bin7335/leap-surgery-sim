@@ -101,9 +101,12 @@ export class Mission {
       }
     } else if (this.state === 'SUTURE' && tool === 'SUTURE' && point.distanceTo(this.site) < NEAR + 0.3) {
       // 횟수가 아니라 "상처가 실제로 다 아물었는지"(치유율)로 완료 판정
-      const ratio = this.scene.deformer.healRatio(this.scene.surgeryMesh, this.site, NEAR + 0.4);
-      this.hud.setProgress('SUTURE', Math.round(ratio * 100));
-      if (ratio >= 0.9) this._siteComplete();
+      // 부피 80% + "깊은 구멍 없음" 둘 다 만족해야 완료(구멍 남았는데 완료되는 것 방지)
+      const { ratio, holeOpen } = this.scene.deformer.healRatio(this.scene.surgeryMesh, this.site, NEAR + 0.2);
+      const done = ratio >= 0.8 && !holeOpen;
+      const pct = Math.min(done ? 100 : 99, Math.round((ratio / 0.8) * 100)); // 구멍 남으면 99%에서 멈춤
+      this.hud.setProgress('SUTURE', pct);
+      if (done) this._siteComplete();
     }
   }
 

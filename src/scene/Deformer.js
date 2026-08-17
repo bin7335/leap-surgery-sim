@@ -34,7 +34,7 @@ export class Deformer {
   }
 
   cut(mesh, worldPoint, worldRadius = 0.18) { this._apply(mesh, worldPoint, worldRadius, 'CUT'); }     // 얇은 절개
-  suture(mesh, worldPoint, worldRadius = 0.3) { this._apply(mesh, worldPoint, worldRadius, 'SUTURE'); }
+  suture(mesh, worldPoint, worldRadius = 0.22) { this._apply(mesh, worldPoint, worldRadius, 'SUTURE'); } // 좁고 정밀한 봉합
 
   _apply(mesh, worldPoint, worldRadius, mode) {
     const t0 = performance.now();
@@ -72,7 +72,9 @@ export class Deformer {
         // 흉터 높이는 절개가 깊었을수록 도드라짐(음수 depth = 바깥 볼록).
         const wasCut = scar[i] > maxDepth * 0.1;
         const target = wasCut ? -Math.min(scar[i] * 0.9, maxDepth * 0.6) : 0; // 뚜렷하게 융기
-        depth[i] = Math.max(target, depth[i] - fall * maxDepth * 0.03); // 천천히 아뭄
+        // 봉합은 브러시 가장자리도 어느 정도 아물게(감쇠 바닥 0.35) — 마지막 몇 정점이 안 채워져 완료가 막히는 것 방지
+        const fallS = 0.35 + 0.65 * fall;
+        depth[i] = Math.max(target, depth[i] - fallS * maxDepth * 0.06); // 아뭄 속도(체감 튜닝값)
         if (wasCut) col.setXYZ(i, 0.95, 0.5, 0.55); // 켈로이드: 진한 장밋빛 흉터 라인
         else col.setXYZ(i, 1, 1, 1);                // 절개 안 됐던 주변은 원래 색 복구
       }
@@ -99,24 +101,30 @@ export class Deformer {
    */
   healRatio(mesh, worldPoint, worldRadius) {
     const geo = mesh?.geometry;
-    if (!geo?.userData._defReady) return 1; // 상처 없음 = 아물 것 없음
+    if (!geo?.userData._defReady) return { ratio: 1, holeOpen: false }; // 상처 없음
     const pos = geo.attributes.position;
     const orig = geo.userData._orig, depth = geo.userData._depth, scar = geo.userData._scar;
     const lp = mesh.worldToLocal(worldPoint.clone());
     const scale = _v.setFromMatrixColumn(mesh.matrixWorld, 0).length() || 1;
     const r2 = (worldRadius / scale) ** 2;
-    const scarMin = (0.14 / scale) * 0.15; // 유의미한 절개였는지 기준
-    // 연속 비율: 남은 파임(depth>0) 총량 / 상처 총량 → 문지르는 만큼 꾸준히 차오름
-    let totalScar = 0, totalOpen = 0;
+    const maxDepthRef = 0.14 / scale;
+    const scarMin = maxDepthRef * 0.15; // 유의미한 절개였는지 기준
+    // 연속 비율(부피) + 잔여 구멍 검사(깊게 열린 정점이 여러 개 모여있을 때만 "구멍")
+    let totalScar = 0, totalOpen = 0, deepCount = 0;
     for (let i = 0; i < pos.count; i++) {
       const ix = i * 3;
       const dx = orig[ix] - lp.x, dy = orig[ix + 1] - lp.y, dz = orig[ix + 2] - lp.z;
       if (dx * dx + dy * dy + dz * dz > r2) continue;
       if (scar[i] <= scarMin) continue;
       totalScar += scar[i];
-      totalOpen += Math.max(0, depth[i]);
+      const open = Math.max(0, depth[i]);
+      totalOpen += open;
+      if (open > maxDepthRef * 0.5) deepCount++;
     }
-    return totalScar === 0 ? 1 : 1 - totalOpen / totalScar;
+    return {
+      ratio: totalScar === 0 ? 1 : 1 - totalOpen / totalScar,
+      holeOpen: deepCount >= 3, // 정점 1~2개짜리 미세 잔여물은 무시(후한 판정)
+    };
   }
 
   reset(mesh) {
