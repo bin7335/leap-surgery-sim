@@ -125,7 +125,7 @@ export class OperatingScene {
     if (newSize > diag) applyOffset(-1); // 커졌다 = 바깥으로 나갔다 → 반대로
     const inner = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
       color: 0x9c3030, roughness: 0.65, // 붉은 근육/점막 조직 느낌
-      side: THREE.BackSide, // 뒷면만 렌더 → 바깥에선 절대 안 보이고, 절개 구멍을 통해서만 내부가 보임
+      side: THREE.DoubleSide, // 절개로 외벽이 파이면 가까운 내부면(붉은 바닥)이 오목하게 보임
     }));
     inner.position.copy(mesh.position);
     inner.quaternion.copy(mesh.quaternion);

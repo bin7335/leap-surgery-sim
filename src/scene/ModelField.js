@@ -22,7 +22,7 @@ export class ModelField {
    * @param {number} targetSize 수술 영역에 맞출 최대 치수(씬 유닛)
    * @returns {Promise<{root: THREE.Group, surgeryMesh: THREE.Mesh}>}
    */
-  static async load(targetSize = 4.2) {
+  static async load(targetSize = 6.0) {
     const loader = new GLTFLoader();
     for (const url of ModelField.CANDIDATES) {
       try {
