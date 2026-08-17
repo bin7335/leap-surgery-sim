@@ -105,7 +105,6 @@ document.getElementById('btn-challenge').addEventListener('click', askChallenger
 document.getElementById('btn-name-start').addEventListener('click', startChallenge);
 document.getElementById('btn-name-cancel').addEventListener('click', showModeSelect);
 $nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') startChallenge(); });
-document.getElementById('btn-mode-select').addEventListener('click', showModeSelect);
 // 화면 내 연습↔도전 즉시 전환 토글
 document.getElementById('game-switch').querySelectorAll('button').forEach((b) =>
   b.addEventListener('click', () => {
