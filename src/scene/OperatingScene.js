@@ -99,16 +99,33 @@ export class OperatingScene {
     geo.deleteAttribute('color'); // 외벽의 흉터 색과 무관하게
     const pos = geo.attributes.position;
     const nrm = geo.attributes.normal;
+    // 로드 직후엔 matrixWorld가 아직 계산 전이라 스케일이 틀어진다 → 먼저 갱신
+    this.scene.updateMatrixWorld(true);
     const worldScale = new THREE.Vector3().setFromMatrixColumn(mesh.matrixWorld, 0).length() || 1;
-    const dLocal = 0.08 / worldScale; // 월드 기준 0.08 안쪽
-    for (let i = 0; i < pos.count; i++) {
-      pos.setXYZ(i,
-        pos.getX(i) - nrm.getX(i) * dLocal,
-        pos.getY(i) - nrm.getY(i) * dLocal,
-        pos.getZ(i) - nrm.getZ(i) * dLocal);
-    }
+    let dLocal = 0.08 / worldScale; // 월드 기준 0.08 안쪽
+    geo.computeBoundingBox();
+    const diag = geo.boundingBox.getSize(new THREE.Vector3()).length();
+    dLocal = Math.min(dLocal, diag * 0.015); // 과도한 수축(뒤집힘) 방지 상한
+    const orig = new Float32Array(pos.array); // 방향 검증 실패 시 재적용용
+
+    const applyOffset = (sign) => {
+      for (let i = 0; i < pos.count; i++) {
+        const ix = i * 3;
+        const nx = nrm.getX(i), ny = nrm.getY(i), nz = nrm.getZ(i);
+        const nl = Math.hypot(nx, ny, nz) || 1; // 법선 정규화(비정규 익스포트 대비)
+        const k = (dLocal * sign) / nl;
+        pos.setXYZ(i, orig[ix] - nx * k, orig[ix + 1] - ny * k, orig[ix + 2] - nz * k);
+      }
+    };
+
+    // 법선 방향이 반대인 모델이면 "안쪽 수축"이 "바깥 팽창"이 된다 → 크기 비교로 감지해 뒤집기
+    applyOffset(1);
+    geo.computeBoundingBox();
+    const newSize = geo.boundingBox.getSize(new THREE.Vector3()).length();
+    if (newSize > diag) applyOffset(-1); // 커졌다 = 바깥으로 나갔다 → 반대로
     const inner = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
       color: 0x9c3030, roughness: 0.65, // 붉은 근육/점막 조직 느낌
+      side: THREE.BackSide, // 뒷면만 렌더 → 바깥에선 절대 안 보이고, 절개 구멍을 통해서만 내부가 보임
     }));
     inner.position.copy(mesh.position);
     inner.quaternion.copy(mesh.quaternion);
