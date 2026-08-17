@@ -30,6 +30,7 @@ export class InputController {
     this.leap = leapSource;
     this.controlMode = 'MOUSE';
     this.mountMode = 'desktop';
+    this.mouseTool = 'CUT'; // 마우스 모드에서 선택된 도구(상단 토글로 전환)
 
     this.hands = { right: emptyHand(), left: emptyHand() };
 
@@ -45,6 +46,7 @@ export class InputController {
 
   setControlMode(mode) { this.controlMode = mode; if (mode === 'DEMO') this._demoAngle = 0; }
   setMountMode(mode) { this.mountMode = mode; this.leap.setMode(mode); }
+  setMouseTool(tool) { this.mouseTool = tool; }
 
   /** 립모션 손바닥(px 좌우, pz 앞뒤 mm) → 화면 NDC(-1..1) */
   _leapToNDC(px, pz) {
@@ -102,35 +104,34 @@ export class InputController {
   }
 
   _buildMouse() {
-    // 절개(오른손) 활성 우선, 아니면 봉합(왼손) 활성. 하나는 항상 조준용으로 표시.
-    const cut = this._mouseButtons.cut, suture = this._mouseButtons.suture;
-    this.hands.right.target.copy(this._mouseTarget);
-    this.hands.right.normal.copy(this._mouseNormal);
-    this.hands.right.hand = null;
-    this.hands.left.target.copy(this._mouseTarget);
-    this.hands.left.normal.copy(this._mouseNormal);
-    this.hands.left.hand = null;
-
-    if (suture) {
-      this.hands.left.present = true; this.hands.left.pinch = 1;
-      this.hands.right.present = false; this.hands.right.pinch = 0;
-    } else {
-      this.hands.right.present = true; this.hands.right.pinch = cut ? 1 : 0;
-      this.hands.left.present = false; this.hands.left.pinch = 0;
-    }
+    // 상단 토글로 선택된 도구를 클릭(아무 버튼)으로 실행
+    const firing = this._mouseButtons.cut || this._mouseButtons.suture;
+    const isSuture = this.mouseTool === 'SUTURE';
+    const slot = isSuture ? this.hands.left : this.hands.right;
+    const other = isSuture ? this.hands.right : this.hands.left;
+    slot.target.copy(this._mouseTarget);
+    slot.normal.copy(this._mouseNormal);
+    slot.hand = null;
+    slot.present = true;
+    slot.pinch = firing ? 1 : 0;
+    other.present = false;
+    other.pinch = 0;
   }
 
   _buildDemo() {
-    this._demoAngle += 0.012;
-    const x = Math.sin(this._demoAngle) * 0.8;
-    const z = Math.cos(this._demoAngle * 1.5) * 0.3 + 0.2;
-    const hit = this.scene.resolveFromGround(x, z);
-    // 절개 → 봉합 번갈아 시연
-    const suturePhase = Math.sin(this._demoAngle * 0.25) < 0;
+    this._demoAngle += 0.008;
+    const a = this._demoAngle;
+    // 화면 중앙(장기 영역)을 도는 완만한 궤도. 장기에 맞았을 때만 이동 → 장기 밖 배회 방지
+    this._ndc.set(Math.sin(a) * 0.2, Math.cos(a * 1.3) * 0.15);
+    const hit = this.scene.raycastOrganFromNDC?.(this._ndc);
+    // 절개 8초 ↔ 봉합 8초 교대, 핀치는 느긋하게
+    const suturePhase = Math.floor(a / 4) % 2 === 1;
     const slot = suturePhase ? this.hands.left : this.hands.right;
     const other = suturePhase ? this.hands.right : this.hands.left;
-    slot.target.copy(hit.point); slot.normal.copy(hit.normal); slot.hand = null;
-    slot.present = true; slot.pinch = Math.sin(this._demoAngle * 8) > 0.3 ? 1 : 0;
+    if (hit) { slot.target.copy(hit.point); slot.normal.copy(hit.normal); }
+    slot.hand = null;
+    slot.present = true;
+    slot.pinch = hit && Math.sin(a * 2.5) > -0.2 ? 1 : 0;
     other.present = false; other.pinch = 0;
   }
 }

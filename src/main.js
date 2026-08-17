@@ -19,9 +19,23 @@ let lastHandSeen = performance.now();
 let autoAttract = false;
 
 const hud = new Hud({
-  onControl: (m) => { autoAttract = false; lastHandSeen = performance.now(); input.setControlMode(m); }, // 수동 선택은 어트랙트 해제+타이머 리셋
+  onControl: (m) => {
+    autoAttract = false;
+    lastHandSeen = performance.now(); // 수동 선택은 어트랙트 해제+타이머 리셋
+    input.setControlMode(m);
+    document.getElementById('tool-switch').hidden = m !== 'MOUSE'; // 도구 토글은 마우스 모드 전용
+  },
   onReset: () => { scene.reset(); hud.resetProgress(); },
 });
+
+// 마우스 모드 도구 전환(절개/봉합)
+document.getElementById('tool-switch').querySelectorAll('button').forEach((b) =>
+  b.addEventListener('click', () => {
+    input.setMouseTool(b.dataset.tool);
+    document.getElementById('tool-switch').querySelectorAll('button')
+      .forEach((x) => x.classList.toggle('is-active', x === b));
+  })
+);
 
 leap.on('status', (s) => hud.setStatus(s));
 leap.on('frame', (f) => { if (f.hands.length > 0) lastHandSeen = performance.now(); });
@@ -90,6 +104,8 @@ const $result = document.getElementById('result');
 mission.onFinished = ({ name, sec, penalty }) => {
   const pen = penalty > 0.05 ? ` (페널티 +${penalty.toFixed(1)}초)` : '';
   document.getElementById('result-text').textContent = `${name} — 기록 ${sec.toFixed(1)}초${pen}`;
+  // TOP5 순위판(방금 기록 하이라이트 포함) — 우상단 기록판과 동일 내용
+  document.getElementById('result-ranking').innerHTML = document.getElementById('records-list').innerHTML;
   $result.hidden = false;
 };
 document.getElementById('btn-retry').addEventListener('click', () => {

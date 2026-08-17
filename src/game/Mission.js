@@ -226,9 +226,20 @@ export class Mission {
 
   _renderRecords(latest) {
     const arr = this._loadRecords();
-    const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
+    if (arr.length === 0) {
+      this.$list.innerHTML = '<li class="rank-empty">아직 기록이 없습니다</li>';
+      return;
+    }
+    const medals = ['🥇', '🥈', '🥉', '4', '5'];
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     this.$list.innerHTML = arr
-      .map((r, i) => `<li${latest && r.n === latest.n && r.s === latest.s ? ' class="is-new"' : ''}>${medals[i]} ${r.n} ${r.s.toFixed(1)}초</li>`)
+      .map((r, i) => {
+        const isNew = latest && r.n === latest.n && r.s === latest.s;
+        return `<li class="rank-row rank-${i + 1}${isNew ? ' is-new' : ''}">` +
+          `<span class="r-medal">${medals[i]}</span>` +
+          `<span class="r-name">${esc(r.n)}</span>` +
+          `<span class="r-time">${r.s.toFixed(1)}초</span></li>`;
+      })
       .join('');
   }
 }

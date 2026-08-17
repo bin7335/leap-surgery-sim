@@ -87,7 +87,7 @@ export class HandGhost {
     this.hitLight = new THREE.PointLight(this.hue, 0, 3);
     scene.add(this.hitLight);
 
-    // 마우스/시연 모드용: 로봇 손 대신 "레이저 스타일러스(도구)"
+    // 마우스/시연 모드용: 하단에서 관절로 이어진 로봇 암 + 도구 헤드
     this.stylus = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.06, 1, 12), this.metal);
     this.stylus.visible = false;
     scene.add(this.stylus);
@@ -97,6 +97,13 @@ export class HandGhost {
     );
     this.stylusTip.visible = false;
     scene.add(this.stylusTip);
+
+    // 로봇 암: 화면 하단 밖 베이스 → 팔꿈치 → 도구 (2관절)
+    this.armBase = new THREE.Vector3(side === 'right' ? 3.4 : -3.4, -4.5, 3.2);
+    this.armSeg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 1, 10), this.metal);
+    this.armSeg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1, 10), this.metal);
+    this.armJoints = [0.16, 0.12, 0.1].map((r) => new THREE.Mesh(new THREE.SphereGeometry(r, 14, 14), this.accent));
+    [this.armSeg1, this.armSeg2, ...this.armJoints].forEach((m) => { m.visible = false; scene.add(m); });
 
     this._m = new THREE.Matrix4();
     this._a = new THREE.Vector3();
@@ -124,6 +131,7 @@ export class HandGhost {
     if (!present) {
       this.group.visible = false; this.beam.visible = false; this.hit.visible = false;
       this.hitLight.intensity = 0; this.stylus.visible = false; this.stylusTip.visible = false;
+      this._setArmVisible(false);
       return;
     }
 
@@ -150,8 +158,9 @@ export class HandGhost {
 
     // 모드별 손/도구 표시 전환
     this.group.visible = isLeap;       // 로봇 손은 립모션 때만
-    this.stylus.visible = !isLeap;     // 스타일러스는 마우스/시연 때만
+    this.stylus.visible = !isLeap;     // 로봇 암+도구는 마우스/시연 때만
     this.stylusTip.visible = !isLeap;
+    this._setArmVisible(!isLeap);
 
     if (isLeap) {
       // 로봇 손: 뼈대(원통) + 관절 구슬
@@ -194,17 +203,34 @@ export class HandGhost {
       this.hitLight.intensity = 0;
     }
 
-    // 마우스/시연 모드: 스타일러스(도구)를 빔 축에 맞춰 배치(끝이 tip = 발사점)
+    // 마우스/시연 모드: 하단 베이스 → 팔꿈치 → 도구로 이어지는 로봇 암 + 도구 헤드
     if (!isLeap) {
       const beamDir = this._b.copy(target).sub(tip).normalize();
-      const base = this._tmp.copy(tip).addScaledVector(beamDir, -0.5);
-      this._orientBone(this.stylus, base, tip);
+      const stylusBase = this._tmp.copy(tip).addScaledVector(beamDir, -0.5);
+      this._orientBone(this.stylus, stylusBase, tip);
       this.stylusTip.position.copy(tip);
       this.stylusTip.material.color.setHex(col);
+
+      // 팔꿈치: 베이스-도구 중간에서 바깥쪽으로 굽힘(자연스러운 관절 곡선)
+      this._right.setFromMatrixColumn(this.camera.matrixWorld, 0);
+      const elbow = new THREE.Vector3().copy(this.armBase).lerp(stylusBase, 0.55)
+        .addScaledVector(this._right, 0.9 * this._sideSign)
+        .add(new THREE.Vector3(0, 0.5, 0));
+      this._orientBone(this.armSeg1, this.armBase, elbow);
+      this._orientBone(this.armSeg2, elbow, stylusBase);
+      this.armJoints[0].position.copy(this.armBase);
+      this.armJoints[1].position.copy(elbow);
+      this.armJoints[2].position.copy(stylusBase);
     }
 
     // 점선 가이드는 숨김(초록 조준 빔이 그 역할)
     this.guide.visible = false;
+  }
+
+  _setArmVisible(v) {
+    this.armSeg1.visible = v;
+    this.armSeg2.visible = v;
+    this.armJoints.forEach((j) => (j.visible = v));
   }
 
   /** 단위 원통(Y축)을 a→b 사이에 배치 (좌표계는 mesh의 부모 기준) */
