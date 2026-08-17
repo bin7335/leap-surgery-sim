@@ -44,7 +44,7 @@ export class InputController {
     this._bindMouse();
   }
 
-  setControlMode(mode) { this.controlMode = mode; if (mode === 'DEMO') this._demoAngle = 0; }
+  setControlMode(mode) { this.controlMode = mode; if (mode === 'DEMO') this._demo = null; }
   setMountMode(mode) { this.mountMode = mode; this.leap.setMode(mode); }
   setMouseTool(tool) { this.mouseTool = tool; }
 
@@ -119,19 +119,54 @@ export class InputController {
   }
 
   _buildDemo() {
-    this._demoAngle += 0.008;
-    const a = this._demoAngle;
-    // 화면 중앙(장기 영역)을 도는 완만한 궤도. 장기에 맞았을 때만 이동 → 장기 밖 배회 방지
-    this._ndc.set(Math.sin(a) * 0.2, Math.cos(a * 1.3) * 0.15);
+    // 자연스러운 수술 루프: 부위 선정 → 선을 그리며 절개 → 멈춤 → 같은 선을 되짚어 봉합 → 다음 부위
+    const now = performance.now() / 1000;
+    if (!this._demo) this._demo = { phase: 'CUT', t0: now, center: null, cycles: 0 };
+    const d = this._demo;
+
+    // 부위 선정(장기 위에 맞을 때까지 재시도)
+    if (!d.center) {
+      const ndc = this._ndc.set((Math.random() * 2 - 1) * 0.18, (Math.random() * 2 - 1) * 0.13);
+      if (this.scene.raycastOrganFromNDC?.(ndc)) { d.center = ndc.clone(); d.t0 = now; }
+      this.hands.right.present = false; this.hands.left.present = false;
+      return;
+    }
+
+    const CUT_DUR = 3.2, PAUSE = 0.7, SUT_DUR = 6.0;
+    const elapsed = now - d.t0;
+    const suturing = d.phase === 'SUTURE';
+
+    // 같은 선분을 왕복: 절개는 일정 속도, 봉합은 살짝 넓게 되짚음
+    const amp = suturing ? 0.085 : 0.07;
+    const sweep = Math.sin(elapsed * 2.0) * amp;
+    this._ndc.set(d.center.x + sweep, d.center.y + sweep * 0.2);
     const hit = this.scene.raycastOrganFromNDC?.(this._ndc);
-    // 절개 8초 ↔ 봉합 8초 교대, 핀치는 느긋하게
-    const suturePhase = Math.floor(a / 4) % 2 === 1;
-    const slot = suturePhase ? this.hands.left : this.hands.right;
-    const other = suturePhase ? this.hands.right : this.hands.left;
+
+    const slot = suturing ? this.hands.left : this.hands.right;
+    const other = suturing ? this.hands.right : this.hands.left;
     if (hit) { slot.target.copy(hit.point); slot.normal.copy(hit.normal); }
     slot.hand = null;
     slot.present = true;
-    slot.pinch = hit && Math.sin(a * 2.5) > -0.2 ? 1 : 0;
     other.present = false; other.pinch = 0;
+
+    // 단계 진행
+    if (d.phase === 'CUT') {
+      slot.pinch = hit && elapsed > 0.4 ? 1 : 0; // 조준 후 발사
+      if (elapsed > CUT_DUR) { d.phase = 'PAUSE1'; d.t0 = now; }
+    } else if (d.phase === 'PAUSE1') {
+      slot.pinch = 0;
+      if (elapsed > PAUSE) { d.phase = 'SUTURE'; d.t0 = now; }
+    } else if (d.phase === 'SUTURE') {
+      slot.pinch = hit && elapsed > 0.4 ? 1 : 0;
+      if (elapsed > SUT_DUR) { d.phase = 'PAUSE2'; d.t0 = now; }
+    } else { // PAUSE2 → 다음 부위
+      slot.pinch = 0;
+      if (elapsed > PAUSE) {
+        d.cycles++;
+        d.center = null;
+        d.phase = 'CUT';
+        if (d.cycles % 4 === 0) this.scene.reset?.(); // 흉터가 쌓이면 주기적으로 새 수술 준비
+      }
+    }
   }
 }
