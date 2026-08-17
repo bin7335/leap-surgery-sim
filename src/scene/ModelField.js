@@ -11,12 +11,13 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  */
 export class ModelField {
   // 어떤 형태로 넣어도 인식되도록 후보 경로를 순서대로 시도
+  // (BASE_URL: GitHub Pages 하위 경로 배포에서도 동작하도록)
   static CANDIDATES = [
-    '/models/organ.glb',
-    '/models/stomach.glb',
-    '/models/organ/scene.gltf',
-    '/models/scene.gltf',
-  ];
+    'models/organ.glb',
+    'models/stomach.glb',
+    'models/organ/scene.gltf',
+    'models/scene.gltf',
+  ].map((p) => import.meta.env.BASE_URL + p);
 
   /**
    * @param {number} targetSize 수술 영역에 맞출 최대 치수(씬 유닛)
