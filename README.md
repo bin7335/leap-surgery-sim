@@ -41,15 +41,42 @@ npm run dev
 npm run deploy   # 빌드 후 gh-pages 브랜치로 GitHub Pages 배포
 ```
 
-## 립모션 연동 (실기기)
+## 립모션 연동 (실기기 — 로컬 서버 없이 웹에서 바로 사용 가능)
 
-1세대 오리지널 컨트롤러 기준:
-1. **Leap Motion Orion 4.1.0** 설치.
-2. Leap Control Panel → **"Allow Web Apps(웹앱 허용)" 체크** → 웹소켓(`ws://127.0.0.1:6437`) 활성화.
-3. 앱에서 **"립모션" 모드** 선택 → 배지가 "립모션 연결됨"이면 손으로 조작.
+별도로 로컬 서버(`npm run dev`)를 띄우지 않아도, PC에 **Orion 4.1.0 드라이버와 `LeapService`**만 실행 중이면 배포된 웹페이지(**https://bin7335.github.io/leap-surgery-sim/**)에서 로컬 웹소켓(`ws://127.0.0.1:6437/v6.json`)으로 즉시 연결됩니다.
 
-> Gemini V5는 웹소켓을 기본 제공하지 않으므로(브리지 필요) 이 데모는 Orion 4.1 웹소켓을 사용합니다.
-> 현장 운영 팁: 센서에 직사광/할로겐 조명이 닿으면 Robust 모드로 지연이 커집니다 — PRD의 부스 체크리스트 참고.
+### 1) 드라이버 설치 및 필수 설정 (1세대 오리지널 컨트롤러 기준)
+1. **반드시 Leap Motion Orion 4.1.0 (`4.1.0+52211`) 설치**
+   - ⚠️ 상위 버전인 **Ultraleap Gemini V5 이상**은 기본 웹소켓 서버가 빠져 있어 별도 브리지 없이는 웹앱과 연결되지 않습니다. 무조건 **Orion 4.1.0**으로 설치하세요.
+2. 트레이 아이콘(`C:\Program Files\Leap Motion\Core Services\LeapControlPanel.exe`) 실행 → **General 탭 → "Allow Web Apps(웹앱 허용)" 체크** (`ws://127.0.0.1:6437` 활성화).
+3. 웹페이지 접속 후 좌상단에서 **"립모션" 모드** 선택 → 배지가 **"립모션 연결됨"**으로 바뀌면 양손으로 즉시 조작 가능.
+
+### 2) 서비스 및 설정 파일(`config.json`) 빠른 점검
+제어판 UI를 열지 않고도 아래 설정이 적용되어 있으면 USB만 꽂아 바로 동작합니다.
+
+- **백그라운드 서비스 확인 (PowerShell)**:
+  ```powershell
+  Get-Service -Name "LeapService"   # Status가 Running이어야 함 (중지 시 Start-Service LeapService)
+  ```
+- **설정 파일 경로**: `%APPDATA%\Leap Motion\config.json` 및 `C:\ProgramData\Leap Motion\config.json`
+- **권장 `config.json` 값** (웹소켓 활성화 + 조명 간섭 시 딜레이 유발하는 Robust 모드 비활성화):
+  ```json
+  {
+    "configuration": {
+      "auto_install_updates": false,
+      "image_processing_auto_flip": false,
+      "images_mode": 2,
+      "metrics_enabled": false,
+      "no_cp_startup": true,
+      "robust_mode_enabled": false,
+      "websockets_enabled": true
+    }
+  }
+  ```
+
+### 3) 현장 운영 및 브라우저 연결 문제 해결
+- **브라우저 차단 해제**: Chrome/Edge에서 `https://` 페이지가 로컬 `ws://127.0.0.1:6437`에 접근할 때 로컬 네트워크 권한 팝업이 뜨면 **[허용]**을 누르세요. 만약 연결이 막히면 주소창 왼쪽 아이콘(사이트 설정) → **안전하지 않은 콘텐츠(Insecure content) → 허용**으로 변경하면 즉시 연결됩니다.
+- **조명 주의**: 센서에 직사광선이나 할로겐 조명이 닿으면 적외선(IR) 간섭으로 인해 트래킹 지연이 커집니다. 실내 LED 조명 환경에서 사용하세요.
 
 ## 3D 모델 배치
 
