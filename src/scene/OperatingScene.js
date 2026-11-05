@@ -97,7 +97,11 @@ export class OperatingScene {
       this.tissue.setProceduralVisible(false); // 절차적 장기 전체 숨김
       this._fieldBounds = null; // 모델 기준으로 영역 재계산
       console.info('[scene] 사실적 모델 로드됨');
-    }).catch(() => { /* 파일 없음 → 절차적 Tissue 유지 */ });
+    }).catch(() => {
+      // 파일 없음(GitHub Pages 등) → 절차적 Tissue 유지 + BVH 가속 및 내부 속살층 동일 적용
+      this.tissue.mesh.geometry.computeBoundsTree();
+      this._addInnerLayer(this.tissue.mesh);
+    });
   }
 
   /**
@@ -215,6 +219,7 @@ export class OperatingScene {
     if (!AC) return;
     if (!this._audioCtx) this._audioCtx = new AC();
     const ctx = this._audioCtx;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);

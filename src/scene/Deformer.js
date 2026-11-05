@@ -143,5 +143,7 @@ export class Deformer {
     pos.needsUpdate = true;
     col.needsUpdate = true;
     geo.computeVertexNormals();
+    geo.boundsTree?.refit?.();
+    this._normalDirty = 0;
   }
 }
